@@ -1,154 +1,213 @@
-<!-- templates/index.html -->
 <!doctype html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>SNIPER BLAZE PRO — WEB</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --bg:#0f0d1a; --card:#151226; --ink:#cbd5e1; --muted:#8b8fa7;
-      --green:#28c08a; --red:#ef4444; --accent:#7b2cbf; --yellow:#f59e0b;
-      --whitechip:#f6f6f6; --blackchip:#0e0e10; --redchip:#ff2e2e;
+    :root{
+      --bg:#0b0b13; --panel:#111122; --glass:#15152a; --card:#151527; 
+      --muted:#9aa3b2; --text:#eef2ff; --accent:#7b2cbf; --accent-2:#6ee7b7;
+      --red:#ef4444; --black:#0f1115; --white:#f7f7f7; --stroke:#23243a;
+      --ok:#22c55e; --bad:#ef4444; --chip:#1c1c35;
     }
     *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:#fff;font:14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Arial}
-    header{display:flex;align-items:center;justify-content:space-between;padding:16px 24px}
-    h1{font-size:14px;letter-spacing:.08em;color:#e5e7eb;margin:0}
-    .pill{padding:6px 10px;border-radius:10px;background:#1d1833;color:#c7c9d5;margin-right:8px}
-    .wrap{display:grid;grid-template-columns:280px 1fr;gap:16px;padding:0 16px 24px}
-    .card{background:var(--card);border:1px solid #251f3f;border-radius:14px;padding:16px}
-    .title{font-weight:700;color:#e9e9f5;margin-bottom:8px}
+    html,body{height:100%}
+    body{
+      margin:0;background:radial-gradient(1200px 800px at 5% -10%, #18182d 0%, transparent 60%), var(--bg);
+      color:var(--text);font:400 14px/1.45 Inter,system-ui,Arial;letter-spacing:.2px;
+    }
+    .wrap{max-width:1200px;margin:20px auto;padding:0 16px}
+    h1{font-size:18px;margin:0 0 16px 0;letter-spacing:.6px}
+    .row{display:grid;gap:16px}
+    .g2{grid-template-columns:1fr 2fr}
+    .g3{grid-template-columns:2fr 1.2fr 1fr}
+    @media (max-width:1024px){.g2,.g3{grid-template-columns:1fr}}
+    .panel{background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01)); border:1px solid var(--stroke); border-radius:14px; padding:14px; backdrop-filter:blur(6px)}
+    .kpi{display:flex;gap:10px;align-items:center}
+    .chip{background:var(--chip);border:1px solid var(--stroke); padding:6px 10px;border-radius:999px;font-weight:600}
+    .pill{padding:6px 10px;border-radius:999px;border:1px solid var(--stroke);cursor:pointer;user-select:none}
+    .pill.active{background:var(--accent);border-color:transparent}
+    .btn{background:linear-gradient(180deg,#8b5cf6,#7c3aed); border:0; color:#fff; font-weight:700; padding:10px 14px; border-radius:10px; cursor:pointer}
+    .btn.ghost{background:transparent;border:1px solid var(--stroke);color:var(--text)}
+    .title{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .bar{height:10px;border-radius:999px;background:#20223a;overflow:hidden;border:1px solid var(--stroke)}
+    .bar>span{display:block;height:100%}
+    .flex{display:flex;gap:10px;align-items:center}
+    .scroll {display:flex; gap:8px; overflow:auto; padding-bottom:6px}
+    .ball{width:46px;height:46px;border-radius:10px;display:grid;place-items:center;font-weight:800;border:1px solid var(--stroke)}
+    .ball.R{background:#e11d48}
+    .ball.B{background:#0b0f14}
+    .ball.W{background:#ffffff;color:#111;border-color:#ddd}
+    .card{background:var(--card);border:1px solid var(--stroke);border-radius:14px;padding:14px}
+    .big{display:grid;place-items:center;height:150px;border-radius:14px;border:1px dashed var(--stroke)}
+    .big.W{background:#f6f6f6;color:#111}
+    .big.R{background:#ff2740}
+    .big.B{background:#0f1117}
+    .big>div{font-size:28px;font-weight:800}
     .muted{color:var(--muted)}
-    .row{display:flex;gap:8px;flex-wrap:wrap}
-    .btn{border:0;border-radius:10px;padding:8px 12px;background:#241b43;color:#e8e7f3;cursor:pointer}
-    .btn:hover{background:#2b1f58}
-    .btn-green{background:#173f33;color:#abf2d6}
-    .btn-red{background:#43202a;color:#ffb2bb}
-    .chips{display:grid;grid-template-columns:repeat(10,42px);gap:10px}
-    .chip{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800}
-    .c-red{background:var(--redchip)} .c-black{background:var(--blackchip)} .c-white{background:var(--whitechip);color:#111;border:1px solid #111}
-    .bars .line{height:6px;border-radius:4px;background:#2b2641;margin:6px 0;position:relative}
-    .bars .fill{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
-    .fill-w{background:#e2e8f0} .fill-r{background:#ef4444} .fill-b{background:#111827}
-    table{width:100%;border-collapse:collapse;font-size:13px}
-    th,td{padding:10px 8px;border-bottom:1px solid #231d39;color:#d6d7e3;text-align:left}
-    th{color:#9fa6c7;font-weight:600}
-    .tag{padding:2px 8px;border-radius:999px;background:#231d39;color:#cbd5e1}
-    .win{color:#abf2d6} .loss{color:#fca5a5}
+    table{width:100%;border-collapse:collapse}
+    th,td{border-bottom:1px solid var(--stroke);padding:10px 6px;text-align:left}
+    th{font-size:12px;color:var(--muted);font-weight:600}
+    .ok{color:var(--ok);font-weight:700}
+    .bad{color:var(--bad);font-weight:700}
+    .hint{font-size:12px;color:var(--muted)}
   </style>
 </head>
 <body>
-  <header>
-    <h1>SNIPER BLAZE PRO — WEB</h1>
-    <div class="row">
-      <span class="pill" id="pill-mode">MODE: …</span>
-      <span class="pill" id="pill-bot">BOT: OFF</span>
-      <span class="pill muted" id="pill-src">src: —</span>
-    </div>
-  </header>
-
   <div class="wrap">
-    <!-- Painel esquerdo -->
-    <div class="card">
-      <div class="title">Controle</div>
-      <div class="row" style="margin-bottom:10px">
-        <button class="btn" onclick="setMode('WHITE')">Modo Branco</button>
-        <button class="btn" onclick="setMode('COLORS')">Modo Cores</button>
-      </div>
-      <div class="row" style="margin-bottom:10px">
-        <button class="btn btn-green" onclick="bot('start')">Iniciar Bot</button>
-        <button class="btn btn-red" onclick="bot('stop')">Parar Bot</button>
-      </div>
 
-      <div class="title" style="margin-top:12px">Chances da rodada</div>
-      <div class="bars">
-        <div class="muted">Branco <span id="pct-w" style="float:right">–</span></div>
-        <div class="line"><div id="bar-w" class="fill fill-w" style="width:0%"></div></div>
-
-        <div class="muted">Vermelho <span id="pct-r" style="float:right">–</span></div>
-        <div class="line"><div id="bar-r" class="fill fill-r" style="width:0%"></div></div>
-
-        <div class="muted">Preto <span id="pct-b" style="float:right">–</span></div>
-        <div class="line"><div id="bar-b" class="fill fill-b" style="width:0%"></div></div>
-      </div>
-
-      <div class="title" style="margin-top:14px">Cor + indicada</div>
-      <div id="box-indicada" class="row">
-        <span class="tag">—</span>
-      </div>
-      <div class="muted" id="status" style="margin-top:10px">carregando…</div>
-    </div>
-
-    <!-- Painel direito -->
-    <div class="card">
-      <div class="title">Últimos giros</div>
-      <div class="chips" id="chips"></div>
-
-      <div class="title" style="margin-top:18px">Histórico de Sinais (somente UI)</div>
-      <div style="overflow:auto;max-height:360px">
-        <table>
-          <thead>
-          <tr><th>Hora</th><th>Modo</th><th>Alvo</th><th>Status</th><th>Saiu</th></tr>
-          </thead>
-          <tbody id="tbody">
-            <!-- A UI não grava sinais real por design mínimo -->
-          </tbody>
-        </table>
+    <!-- Header -->
+    <div class="panel">
+      <div class="title">
+        <h1>SNIPER BLAZE PRO — WEB</h1>
+        <div class="kpi">
+          <div class="chip" id="state-pill">OFFLINE</div>
+          <div class="pill active" id="mode-cores">CORES</div>
+          <div class="pill" id="mode-branco">BRANCO</div>
+          <button class="btn" id="btn-start">Iniciar</button>
+          <button class="btn ghost" id="btn-stop">Parar</button>
+        </div>
       </div>
     </div>
+
+    <!-- Grid -->
+    <div class="row g3" style="margin-top:14px">
+
+      <!-- Esquerda: Controles + Chances + Cor Indicada -->
+      <div class="panel">
+
+        <div class="card">
+          <div class="title"><strong>Chances da rodada</strong></div>
+          <div class="flex" style="justify-content:space-between">
+            <span>⚪ Branco</span><span id="w-val">6.7%</span>
+          </div>
+          <div class="bar"><span id="bar-w" style="width:6.7%;background:#e5e7eb"></span></div>
+
+          <div class="flex" style="justify-content:space-between;margin-top:8px">
+            <span>🔴 Vermelho</span><span id="r-val">46%</span>
+          </div>
+          <div class="bar"><span id="bar-r" style="width:46%;background:#ef4444"></span></div>
+
+          <div class="flex" style="justify-content:space-between;margin-top:8px">
+            <span>⚫ Preto</span><span id="b-val">47%</span>
+          </div>
+          <div class="bar"><span id="bar-b" style="width:47%;background:#111827"></span></div>
+        </div>
+
+        <div class="card" style="margin-top:14px">
+          <div class="title"><strong>Cor + indicada</strong></div>
+          <div id="pick" class="big B"><div>Preto • 50%</div></div>
+          <div class="hint" id="pick-reasons" style="margin-top:8px">Motivos: —</div>
+        </div>
+
+      </div>
+
+      <!-- Centro: Últimos giros -->
+      <div class="panel">
+        <div class="title">
+          <strong>Últimos giros</strong>
+          <span class="muted" id="cooldowns">—</span>
+        </div>
+        <div id="rolls" class="scroll"></div>
+      </div>
+
+      <!-- Direita: Histórico -->
+      <div class="panel">
+        <div class="title"><strong>Histórico de Sinais</strong></div>
+        <div class="card" style="max-height:340px;overflow:auto">
+          <table>
+            <thead><tr>
+              <th>Hora</th><th>Modo</th><th>Alvo</th><th>Status</th><th>Gale</th><th>Saiu</th>
+            </tr></thead>
+            <tbody id="log"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
   </div>
 
-<script>
-const $ = sel => document.querySelector(sel);
+  <script>
+    const API = location.origin;
+    const el = s => document.querySelector(s);
 
-function paintChips(arr){
-  const el = $("#chips");
-  el.innerHTML = "";
-  arr.forEach(n=>{
-    let cls = (n===0) ? "c-white" : (n<=7 ? "c-red" : "c-black");
-    const div = document.createElement("div");
-    div.className = "chip "+cls;
-    div.textContent = n;
-    el.appendChild(div);
-  });
-}
+    // UI events: modo/ligar/desligar
+    el('#mode-cores').onclick = async () => {
+      el('#mode-cores').classList.add('active');
+      el('#mode-branco').classList.remove('active');
+      await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'CORES'})});
+    };
+    el('#mode-branco').onclick = async () => {
+      el('#mode-branco').classList.add('active');
+      el('#mode-cores').classList.remove('active');
+      await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'BRANCO'})});
+    };
+    el('#btn-start').onclick = async () => {
+      await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:true})});
+    };
+    el('#btn-stop').onclick = async () => {
+      await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:false})});
+    };
 
-function updBars(p){
-  const w = Math.round(p.W*100), r = Math.round(p.R*100), b = Math.round(p.B*100);
-  $("#bar-w").style.width = w+"%"; $("#pct-w").textContent = w+"%";
-  $("#bar-r").style.width = r+"%"; $("#pct-r").textContent = r+"%";
-  $("#bar-b").style.width = b+"%"; $("#pct-b").textContent = b+"%";
+    function ball(n){
+      if(n===0) return `<div class="ball W">0</div>`;
+      const c = (n>=1 && n<=7) ? 'R' : 'B';
+      return `<div class="ball ${c}">${n}</div>`;
+    }
+    function setPick(tgt, pct){
+      const box = el('#pick');
+      box.className = 'big '+tgt;
+      const name = (tgt==='W'?'Branco':(tgt==='R'?'Vermelho':'Preto'));
+      box.innerHTML = `<div>${name} • ${pct}%</div>`;
+    }
+    function setBars(W,R,B){
+      el('#w-val').textContent = `${W}%`;
+      el('#r-val').textContent = `${R}%`;
+      el('#b-val').textContent = `${B}%`;
+      el('#bar-w').style.width = W+'%';
+      el('#bar-r').style.width = R+'%';
+      el('#bar-b').style.width = B+'%';
+    }
+    function setLog(rows){
+      const mapName = v => v==='W'?'⚪':(v==='R'?'🔴':'⚫');
+      el('#log').innerHTML = rows.map(r=>`
+        <tr>
+          <td>${r.ts||'-'}</td>
+          <td>${r.mode}</td>
+          <td>${mapName(r.target)}</td>
+          <td class="${r.status==='WIN'?'ok':(r.status==='LOSS'?'bad':'')}">${r.status.toUpperCase()}</td>
+          <td>${r.gale ?? '-'}</td>
+          <td>${r.came ?? '-'}</td>
+        </tr>
+      `).join('');
+    }
 
-  const label = p.rec[0]==="W" ? "Branco" : (p.rec[0]==="R"?"Vermelho":"Preto");
-  $("#box-indicada").innerHTML = `<span class="tag">${label} • ${Math.round(p.rec[1]*100)}%</span>`;
-}
-
-async function pull(){
-  try{
-    const res = await fetch("/state");
-    const js = await res.json();
-    $("#pill-mode").textContent = "MODE: "+js.mode;
-    $("#pill-bot").textContent  = "BOT: "+(js.bot_active?"ON":"OFF");
-    $("#pill-src").textContent  = "src: "+(js.src||"—");
-    $("#status").textContent    = js.status || "ok";
-    paintChips(js.last||[]);
-    updBars(js.probs||{W:0,R:0,B:0,rec:["W",0]});
-  }catch(e){
-    $("#status").textContent = "erro: "+e;
-  }
-}
-
-async function setMode(m){
-  await fetch("/mode",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode:m})});
-  pull();
-}
-async function bot(a){
-  await fetch("/bot",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:a})});
-  pull();
-}
-setInterval(pull, 1000);
-pull();
-</script>
+    async function tick(){
+      try{
+        const res = await fetch(API+'/state');
+        const j = await res.json();
+        // estado
+        el('#state-pill').textContent = `${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`;
+        // roll chips
+        el('#rolls').innerHTML = (j.last_50||[]).slice(-12).map(n=>ball(n)).join('');
+        // probs
+        setBars(j.probs.W, j.probs.R, j.probs.B);
+        setPick(j.probs.rec.tgt, j.probs.rec.p);
+        // cooldowns
+        el('#cooldowns').textContent = `cooldown • branco ${j.cooldowns.white}, cores ${j.cooldowns.color}`;
+        setLog(j.signals || []);
+      }catch(e){
+        console.error(e);
+        el('#state-pill').textContent = 'OFFLINE';
+      }finally{
+        setTimeout(tick, 900);
+      }
+    }
+    tick();
+  </script>
 </body>
 </html>
