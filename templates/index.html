@@ -11,7 +11,7 @@
       --bg:#0b0b13; --panel:#111122; --glass:#15152a; --card:#151527; 
       --muted:#9aa3b2; --text:#eef2ff; --accent:#7b2cbf; --accent-2:#6ee7b7;
       --red:#ef4444; --black:#0f1115; --white:#f7f7f7; --stroke:#23243a;
-      --ok:#22c55e; --bad:#ef4444; --chip:#1c1c35;
+      --ok:#22c55e; --bad:#ef4444; --chip:#1c1c35; --warn:#f59e0b;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
@@ -26,34 +26,44 @@
     .g3{grid-template-columns:2fr 1.2fr 1fr}
     @media (max-width:1024px){.g2,.g3{grid-template-columns:1fr}}
     .panel{background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01)); border:1px solid var(--stroke); border-radius:14px; padding:14px; backdrop-filter:blur(6px)}
-    .kpi{display:flex;gap:10px;align-items:center}
+    .kpi{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .chip{background:var(--chip);border:1px solid var(--stroke); padding:6px 10px;border-radius:999px;font-weight:600}
     .pill{padding:6px 10px;border-radius:999px;border:1px solid var(--stroke);cursor:pointer;user-select:none}
     .pill.active{background:var(--accent);border-color:transparent}
     .btn{background:linear-gradient(180deg,#8b5cf6,#7c3aed); border:0; color:#fff; font-weight:700; padding:10px 14px; border-radius:10px; cursor:pointer}
     .btn.ghost{background:transparent;border:1px solid var(--stroke);color:var(--text)}
-    .title{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .title{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px}
     .bar{height:10px;border-radius:999px;background:#20223a;overflow:hidden;border:1px solid var(--stroke)}
     .bar>span{display:block;height:100%}
     .flex{display:flex;gap:10px;align-items:center}
     .scroll {display:flex; gap:8px; overflow:auto; padding-bottom:6px}
-    .ball{width:46px;height:46px;border-radius:10px;display:grid;place-items:center;font-weight:800;border:1px solid var(--stroke)}
+    .ball{min-width:46px;height:46px;border-radius:10px;display:grid;place-items:center;font-weight:800;border:1px solid var(--stroke)}
     .ball.R{background:#e11d48}
     .ball.B{background:#0b0f14}
     .ball.W{background:#ffffff;color:#111;border-color:#ddd}
     .card{background:var(--card);border:1px solid var(--stroke);border-radius:14px;padding:14px}
-    .big{display:grid;place-items:center;height:150px;border-radius:14px;border:1px dashed var(--stroke)}
+    .big{display:grid;place-items:center;min-height:150px;border-radius:14px;border:1px dashed var(--stroke);text-align:center;padding:8px}
     .big.W{background:#f6f6f6;color:#111}
     .big.R{background:#ff2740}
     .big.B{background:#0f1117}
-    .big>div{font-size:28px;font-weight:800}
+    .big>div{font-size:24px;font-weight:800}
     .muted{color:var(--muted)}
     table{width:100%;border-collapse:collapse}
-    th,td{border-bottom:1px solid var(--stroke);padding:10px 6px;text-align:left}
+    th,td{border-bottom:1px solid var(--stroke);padding:10px 6px;text-align:left;vertical-align:top}
     th{font-size:12px;color:var(--muted);font-weight:600}
     .ok{color:var(--ok);font-weight:700}
     .bad{color:var(--bad);font-weight:700}
+    .warn{color:var(--warn);font-weight:700}
     .hint{font-size:12px;color:var(--muted)}
+    .grid-min{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    @media (max-width:720px){.grid-min{grid-template-columns:1fr}}
+    input[type=number], select{
+      background:#0e0e1a;color:var(--text);border:1px solid var(--stroke);
+      padding:8px 10px;border-radius:10px;width:100%;
+    }
+    .mini{font-size:12px;opacity:.9}
+    .nowrap{white-space:nowrap}
+    .tag{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid var(--stroke);background:var(--chip);font-size:12px}
   </style>
 </head>
 <body>
@@ -79,7 +89,32 @@
       <!-- Esquerda: Controles + Chances + Cor Indicada -->
       <div class="panel">
 
+        <!-- Controles de Confluência -->
         <div class="card">
+          <div class="title"><strong>Confluência & Risco</strong><span class="hint mini">exige N estratégias batendo ao mesmo tempo</span></div>
+          <div class="grid-min">
+            <div>
+              <div class="hint mini">Mín. confluência — BRANCO</div>
+              <input type="number" id="inp-conf-white" min="1" value="2">
+            </div>
+            <div>
+              <div class="hint mini">Mín. confluência — CORES</div>
+              <input type="number" id="inp-conf-color" min="1" value="2">
+            </div>
+            <div>
+              <div class="hint mini">Seleção de risco</div>
+              <select id="sel-risk">
+                <option value="conservador">Conservador (menor gales)</option>
+                <option value="agressivo">Agressivo (maior gales)</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex" style="justify-content:flex-end;margin-top:10px;gap:8px">
+            <button class="btn ghost" id="btn-save-conf">Aplicar</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px">
           <div class="title"><strong>Chances da rodada</strong></div>
           <div class="flex" style="justify-content:space-between">
             <span>⚪ Branco</span><span id="w-val">6.7%</span>
@@ -98,9 +133,12 @@
         </div>
 
         <div class="card" style="margin-top:14px">
-          <div class="title"><strong>Cor + indicada</strong></div>
-          <div id="pick" class="big B"><div>Preto • 50%</div></div>
-          <div class="hint" id="pick-reasons" style="margin-top:8px">Motivos: —</div>
+          <div class="title"><strong>Alvo mais indicado</strong></div>
+          <div id="pick" class="big B">
+            <div>Preto • 50%</div>
+            <div class="hint" id="pick-sub" style="margin-top:6px">—</div>
+          </div>
+          <div class="hint" id="pick-reasons" style="margin-top:8px">—</div>
         </div>
 
       </div>
@@ -117,10 +155,10 @@
       <!-- Direita: Histórico -->
       <div class="panel">
         <div class="title"><strong>Histórico de Sinais</strong></div>
-        <div class="card" style="max-height:340px;overflow:auto">
+        <div class="card" style="max-height:420px;overflow:auto">
           <table>
             <thead><tr>
-              <th>Hora</th><th>Modo</th><th>Alvo</th><th>Status</th><th>Gale</th><th>Saiu</th>
+              <th>Hora</th><th>Modo</th><th>Alvo</th><th>Rótulo</th><th>Estrategia</th><th>Conf.</th><th>Max Gales</th><th>Status</th><th>Gale</th><th>Saiu</th>
             </tr></thead>
             <tbody id="log"></tbody>
           </table>
@@ -153,16 +191,34 @@
       await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:false})});
     };
 
+    // aplicar confluência/risco
+    el('#btn-save-conf').onclick = async () => {
+      const cw = parseInt(el('#inp-conf-white').value || '2', 10);
+      const cc = parseInt(el('#inp-conf-color').value || '2', 10);
+      const risk = el('#sel-risk').value;
+      await fetch(API+'/control',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({confluence_white:cw, confluence_color:cc, risk})
+      });
+    };
+
     function ball(n){
       if(n===0) return `<div class="ball W">0</div>`;
       const c = (n>=1 && n<=7) ? 'R' : 'B';
       return `<div class="ball ${c}">${n}</div>`;
     }
-    function setPick(tgt, pct){
+    function setPick(tgt, pct, openTrade){
       const box = el('#pick');
       box.className = 'big '+tgt;
       const name = (tgt==='W'?'Branco':(tgt==='R'?'Vermelho':'Preto'));
-      box.innerHTML = `<div>${name} • ${pct}%</div>`;
+      box.innerHTML = `<div>${name} • ${pct}%</div><div class="hint" id="pick-sub">—</div>`;
+      // Complemento: mostra trade aberto (rótulo/estratégia)
+      if(openTrade){
+        const nm = {W:'Branco',R:'Vermelho',B:'Preto'}[openTrade.target||'B'];
+        const galeTxt = openTrade.step>0 ? ` • GALE ${openTrade.step}` : '';
+        el('#pick-sub').innerHTML = `<span class="tag">${nm}</span> • <span class="tag">${openTrade.strategy||'-'}</span> • máx gales: <b>${openTrade.max_gales||0}</b>${galeTxt}`;
+      }
     }
     function setBars(W,R,B){
       el('#w-val').textContent = `${W}%`;
@@ -174,31 +230,51 @@
     }
     function setLog(rows){
       const mapName = v => v==='W'?'⚪':(v==='R'?'🔴':'⚫');
-      el('#log').innerHTML = rows.map(r=>`
-        <tr>
-          <td>${r.ts||'-'}</td>
-          <td>${r.mode}</td>
-          <td>${mapName(r.target)}</td>
-          <td class="${r.status==='WIN'?'ok':(r.status==='LOSS'?'bad':'')}">${r.status.toUpperCase()}</td>
-          <td>${r.gale ?? '-'}</td>
-          <td>${r.came ?? '-'}</td>
-        </tr>
-      `).join('');
+      el('#log').innerHTML = (rows||[]).map(r=>{
+        const stClass = r.status==='WIN'?'ok':(r.status==='LOSS'?'bad':(r.status==='GALE'?'warn':''));
+        return `
+          <tr>
+            <td class="nowrap">${r.ts||'-'}</td>
+            <td>${r.mode||'-'}</td>
+            <td>${mapName(r.target)}</td>
+            <td>${r.label||'-'}</td>
+            <td>${r.strategy||'-'}</td>
+            <td>${r.confluence ?? '-'}</td>
+            <td>${r.max_gales ?? '-'}</td>
+            <td class="${stClass}">${(r.status||'-').toUpperCase()}</td>
+            <td>${r.gale ?? '-'}</td>
+            <td>${r.came ?? '-'}</td>
+          </tr>
+        `;
+      }).join('');
     }
 
     async function tick(){
       try{
         const res = await fetch(API+'/state');
         const j = await res.json();
+
         // estado
         el('#state-pill').textContent = `${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`;
+
+        // popular controles de confluência/risco
+        if(j.confluence){
+          el('#inp-conf-white').value = j.confluence.white_min ?? 2;
+          el('#inp-conf-color').value = j.confluence.color_min ?? 2;
+          el('#sel-risk').value = j.confluence.selecao_risco || 'conservador';
+        }
+
         // roll chips
         el('#rolls').innerHTML = (j.last_50||[]).slice(-12).map(n=>ball(n)).join('');
+
         // probs
         setBars(j.probs.W, j.probs.R, j.probs.B);
-        setPick(j.probs.rec.tgt, j.probs.rec.p);
+        setPick(j.probs.rec.tgt, j.probs.rec.p, j.open_trade);
+
         // cooldowns
         el('#cooldowns').textContent = `cooldown • branco ${j.cooldowns.white}, cores ${j.cooldowns.color}`;
+
+        // log
         setLog(j.signals || []);
       }catch(e){
         console.error(e);
