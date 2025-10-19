@@ -1,239 +1,302 @@
-# app.py
-# -*- coding: utf-8 -*-
-
-import json
-import math
-import threading
+import math, time, json
 from collections import deque
 from datetime import datetime
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
 
-app = Flask(__name__, template_folder="templates", static_folder="static")
+app = Flask(__name__)
 CORS(app)
 
-# ------------------ Estado do servidor ------------------
+# ========================= Estado em memória =========================
+HISTORY_MAX = 600
+history = deque(maxlen=HISTORY_MAX)      # números 0..14 (0 = branco)
+signals = deque(maxlen=200)              # sinais fechados/abertos (log leve)
+last_snapshot = []                       # último snapshot para merge sem duplicar
 
-HISTORY_MAX = 2000
-history = deque(maxlen=HISTORY_MAX)   # números 0..14 (0 = branco)
-signals = deque(maxlen=500)           # log de sinais emitidos
-state_lock = threading.Lock()
+# Controle do bot
+bot_on = False
+mode_selected = "CORES"                  # "BRANCO" ou "CORES"
 
-# modo e bot
-MODE_WHITE = "WHITE"
-MODE_COLORS = "COLORS"
-mode_selected = MODE_COLORS
-bot_active = False
+# Gales: apenas CORES
+GALE_STEPS = [1, 2]                      # G0, G1
+MAX_GALES  = 1
 
-# snapshot anti-duplicado
-_last_snapshot = []
-_snapshot_lock = threading.Lock()
+open_trade = None                        # trade aberto
+cool_white = 0
+cool_color = 0
 
-last_status = "ok"
-last_src = "—"
-
-# ------------------ Helpers ------------------
-
+# ========================= Helpers gerais =========================
 def is_red(n):   return 1 <= n <= 7
 def is_black(n): return 8 <= n <= 14
-
-def color_of(n):
+def color_code(n):
     if n == 0: return "W"
     return "R" if is_red(n) else "B"
 
-def to_color_code(n):
-    if n == 0: return 0
-    return 2 if is_red(n) else 1
+def now_hhmmss():
+    return datetime.now().strftime("%H:%M:%S")
 
-def last_k_colors(seq, k, ignore_white=True):
-    out = []
-    for v in reversed(seq):
-        if v == 0 and ignore_white:
-            continue
-        out.append("R" if is_red(v) else "B")
-        if len(out) >= k:
-            break
-    return list(reversed(out))
+def overlap(a, b, kmax=60):
+    kmax = min(kmax, len(a), len(b))
+    for k in range(kmax, 0, -1):
+        if a[-k:] == b[-k:]:
+            return k
+    return 0
 
-def count_in_last(seq, k):
-    lst = last_k_colors(seq, k)
-    return lst.count("R"), lst.count("B"), lst
-
-def pct(lst, p):
-    if not lst: return 0.0
-    s = sorted(lst)
-    k = int(max(0, min(len(s)-1, round((p/100)*(len(s)-1)))))
-    return float(s[k])
-
-def gaps_from_seq(seq):
-    idx = [i for i, v in enumerate(seq) if v == 0]
-    gaps = []
-    for a, b in zip(idx, idx[1:]):
-        gaps.append(b - a)
-    gap_atual = (len(seq)-1-idx[-1]) if idx else len(seq)
-    return gaps, gap_atual
-
-def merge_snapshot_into_history(snapshot):
-    """
-    Adiciona apenas o que é novo. Aceita snapshot LTR/RTL.
-    Não duplica nem regride.
-    """
-    global _last_snapshot
-    try:
-        snap = [int(x) for x in snapshot if isinstance(x, int) and 0 <= x <= 14]
-    except Exception:
-        return 0
-    if not snap:
-        return 0
-
-    def ov(a, b, kmax=60):
-        kmax = min(kmax, len(a), len(b))
-        for k in range(kmax, 0, -1):
-            if a[-k:] == b[-k:]:
-                return k
-        return 0
+def merge_snapshot(snapshot):
+    """Adiciona somente itens novos do snapshot (detecta direção)."""
+    global last_snapshot
+    if not snapshot: return 0
+    snap = [int(x) for x in snapshot if isinstance(x, int) and 0 <= x <= 14]
+    if not snap: return 0
 
     added = 0
-    with _snapshot_lock:
-        if not _last_snapshot:
-            _last_snapshot = list(snap)
-            with state_lock:
-                for n in snap:
-                    history.append(n); added += 1
-            return added
+    if not last_snapshot:
+        last_snapshot = list(snap)
+        for n in snap: history.append(n); added += 1
+        return added
 
-        a = snap
-        b = snap[::-1]
-        ova = ov(_last_snapshot, a)
-        ovb = ov(_last_snapshot, b)
-        chosen = a if ova >= ovb else b
-        k = max(ova, ovb)
+    a = snap
+    b = snap[::-1]
+    oa = overlap(last_snapshot, a)
+    ob = overlap(last_snapshot, b)
+    chosen = a if oa >= ob else b
+    k = max(oa, ob)
 
-        if k >= len(chosen):
-            _last_snapshot = list(chosen)
-            return 0
+    if k >= len(chosen):
+        last_snapshot = list(chosen)
+        return 0
 
-        new_tail = chosen[k:]
-        if new_tail:
-            with state_lock:
-                for n in new_tail:
-                    history.append(n); added += 1
-        _last_snapshot = list(chosen)
+    new_tail = chosen[k:]
+    for n in new_tail:
+        history.append(n); added += 1
+    last_snapshot = list(chosen)
     return added
 
-# ---- Probabilidades simples para UI (estáveis) ----
+def last_k_colors(seq, k, ignore_white=True):
+    out=[]
+    for v in reversed(seq):
+        if v==0 and ignore_white: continue
+        out.append("R" if is_red(v) else "B")
+        if len(out)>=k: break
+    return list(reversed(out))
 
-def estimate_probs(seq):
-    """
-    Heurística leve e estável. Não usa aleatoriedade.
-    - Branco: parte de 6.67% e ganha leve boost se gaps altos.
-    - Cores: frequência recente nos últimos 20 (com suavização Laplace).
-    """
-    base_white = 1.0 / 15.0  # ~6.67%
-    pW = base_white
+def counts_last(seq, k):
+    lst = last_k_colors(seq, k)
+    return lst.count("R"), lst.count("B")
 
-    gaps, gap = gaps_from_seq(seq)
-    if gaps:
-        mu = sum(gaps)/len(gaps)
-        sd = (sum((g-mu)**2 for g in gaps)/max(1, len(gaps)-1))**0.5
-        p90 = pct(gaps, 90)
-        # boosts seguros e limitados
-        if gap >= mu + 1.0*sd:     pW += 0.03
-        if gap >= p90:             pW += 0.03
-        pW = min(0.40, max(base_white, pW))
-
-    r20, b20, _ = count_in_last(seq, 20)
-    tot = r20 + b20
-    if tot == 0:
-        pR_raw = pB_raw = 0.5
+# ========================= Engines de sinais =========================
+def white_engine(seq):
+    """Heurística leve para BRANCO: avalia gaps e repetição recente."""
+    if not seq: return {"ok": False}
+    idx = [i for i, v in enumerate(seq) if v == 0]
+    if not idx:
+        gap = len(seq)
+        gaps = []
     else:
-        pR_raw = (r20 + 1) / (tot + 2)
-        pB_raw = (b20 + 1) / (tot + 2)
+        gap = (len(seq)-1) - idx[-1]
+        gaps = [b-a for a, b in zip(idx, idx[1:])]
 
+    if not gaps:
+        mu = 25.0
+        p90 = 40.0
+    else:
+        mu = sum(gaps)/len(gaps)
+        sgaps = sorted(gaps)
+        p90 = sgaps[int(0.9*(len(sgaps)-1))]
+
+    reasons = []
+    strong = False
+    if 1 <= gap <= 8: reasons.append("Branco recente (≤8)")
+    if gap >= (mu*1.25): reasons.append("Gap acima da média"); strong = True
+    if gap >= p90: reasons.append("Gap ≥ P90"); strong = True
+    if len(seq) >= 6:
+        tail = seq[-6:]
+        reds  = sum(1 for x in tail if is_red(x))
+        blacks= sum(1 for x in tail if is_black(x))
+        if reds>=5 or blacks>=5: reasons.append("Muro de cor")
+
+    ok = (len(reasons) >= 2) and strong
+    return {"ok": ok, "detail": f"gap={gap} μ≈{mu:.1f} P90≈{p90:.0f}", "reasons": reasons}
+
+def color_engine(seq):
+    """Heurística simples: dominância nos últimos 20 + continuidade curta."""
+    if not seq: return {"ok": False}
+    r20, b20 = counts_last(seq, 20)
+    r10, b10 = counts_last(seq, 10)
+    reasons = []
+
+    dom = None
+    if r20 + b20 >= 10:
+        if r20 >= 0.6*(r20+b20): dom = "R"; reasons.append("Domínio R (20)")
+        if b20 >= 0.6*(r20+b20): dom = "B"; reasons.append("Domínio B (20)")
+
+    lst = last_k_colors(seq, 6)
+    if len(lst) >= 3 and lst[-1] == lst[-2] == lst[-3]:
+        reasons.append("3 seguidas")
+        dom = lst[-1]
+
+    if r10 + b10 >= 8 and abs(r10 - b10) >= 4:
+        reasons.append("Assimetria 10 forte")
+        dom = "R" if r10 > b10 else "B"
+
+    if not dom:
+        return {"ok": False}
+    return {"ok": True, "target": dom, "reasons": reasons}
+
+# ========================= Probabilidades p/ UI ======================
+def estimate_probs(seq):
+    baseW = 1.0/15.0  # 6.67%
+    we = white_engine(seq)
+    extraW = 0.0
+    if we["ok"]:
+        extraW = 0.08
+    else:
+        if len(we.get("reasons", [])) >= 2: extraW = 0.03
+    pW = min(0.40, baseW + extraW)
+
+    r20,b20 = counts_last(seq,20)
+    tot = max(1, r20+b20)
+    pR_raw = (r20+1)/(tot+2)
+    pB_raw = (b20+1)/(tot+2)
     rem = max(0.0, 1.0 - pW)
     pR = pR_raw * rem
     pB = pB_raw * rem
+    s = pW+pR+pB
+    pW,pR,pB = pW/s, pR/s, pB/s
+    rec = max([("W",pW),("R",pR),("B",pB)], key=lambda x: x[1])
+    return {"W":pW,"R":pR,"B":pB,"rec":rec}
 
-    s = pW + pR + pB
-    if s > 0:
-        pW, pR, pB = pW/s, pR/s, pB/s
+# ========================= Trades / gales ============================
+def append_signal_entry(mode, target, step, status="open", came=None, g=None):
+    signal = {
+        "ts": now_hhmmss(),
+        "mode": mode,
+        "target": target,          # 'W'|'R'|'B'
+        "status": status,          # 'open'|'WIN'|'LOSS'
+        "gale": g if g is not None else step,
+        "came": came               # número que saiu
+    }
+    signals.appendleft(signal)
 
-    rec = max([("W", pW), ("R", pR), ("B", pB)], key=lambda x: x[1])
-    return {"W": pW, "R": pR, "B": pB, "rec": rec}
+def try_open_trade_if_needed():
+    global open_trade, cool_color, cool_white
+    if open_trade or not bot_on: return
+    seq = list(history)
+    if not seq: return
 
-# ------------------ Flask endpoints ------------------
+    if mode_selected == "BRANCO":
+        if cool_white > 0: return
+        sig = white_engine(seq)
+        if sig["ok"]:
+            open_trade = {
+                "type": "white",
+                "target": "W",
+                "step": 0,
+                "opened_at": len(seq)
+            }
+            append_signal_entry("BRANCO", "W", 0, status="open")
+    else:
+        if cool_color > 0: return
+        sig = color_engine(seq)
+        if sig["ok"]:
+            tgt = sig["target"]
+            open_trade = {
+                "type": "color",
+                "target": tgt,
+                "step": 0,
+                "opened_at": len(seq)
+            }
+            append_signal_entry("CORES", tgt, 0, status="open")
 
-@app.route("/health")
-def health():
-    return jsonify(ok=True, time=datetime.utcnow().isoformat()+"Z")
+def process_new_number(n):
+    """Chamado a cada número novo e avalia trade aberto."""
+    global open_trade, cool_color, cool_white
+    if not open_trade: 
+        try_open_trade_if_needed()
+        return
 
+    # só considera números *após* a abertura
+    if open_trade and len(history) <= open_trade["opened_at"]:
+        return
+
+    if open_trade["type"] == "white":
+        hit = (n == 0)
+        if hit:
+            append_signal_entry("BRANCO","W", open_trade["step"], status="WIN", came=n)
+            open_trade = None
+            cool_white = 5
+        else:
+            append_signal_entry("BRANCO","W", open_trade["step"], status="LOSS", came=n)
+            open_trade = None
+            cool_white = 5
+
+    else:  # color
+        tgt = open_trade["target"]  # 'R' ou 'B'
+        came = color_code(n)
+        hit = (n != 0) and (came == tgt)
+        if hit:
+            append_signal_entry("CORES", tgt, open_trade["step"], status="WIN", came=n)
+            open_trade = None
+            cool_color = 2
+        else:
+            # errou → gale?
+            if open_trade["step"] >= MAX_GALES:
+                append_signal_entry("CORES", tgt, open_trade["step"], status="LOSS", came=n)
+                open_trade = None
+                cool_color = 2
+            else:
+                open_trade["step"] += 1   # vai para G1 e aguarda o próximo número
+
+# ========================= Rotas HTTP ================================
 @app.route("/")
 def index():
-    # UI simples e resiliente. Carrega dados de /state a cada 1s
     return render_template("index.html")
 
 @app.route("/state")
-def api_state():
-    with state_lock:
-        rolls = list(history)[-20:]
-        mod   = mode_selected
-        bot   = bot_active
-    probs = estimate_probs(list(history))
-    return jsonify({
+def state():
+    seq = list(history)
+    probs = estimate_probs(seq) if seq else {"W":0.066,"R":0.467,"B":0.467,"rec":("B",0.467)}
+    out = {
         "ok": True,
-        "mode": mod,
-        "bot_active": bot,
-        "last": rolls,
-        "probs": probs,
-        "status": last_status,
-        "src": last_src
-    })
+        "bot_on": bot_on,
+        "mode": mode_selected,
+        "history": seq[-20:],
+        "last_50": seq[-50:],
+        "probs": {
+            "W": round(100*probs["W"],1),
+            "R": round(100*probs["R"],1),
+            "B": round(100*probs["B"],1),
+            "rec": {"tgt": probs["rec"][0], "p": round(100*probs["rec"][1],1)}
+        },
+        "signals": list(signals)[:40],
+        "cooldowns": {"white": max(0,cool_white), "color": max(0,cool_color)},
+        "open_trade": open_trade
+    }
+    return jsonify(out)
 
-@app.route("/mode", methods=["POST"])
-def api_mode():
-    global mode_selected
-    try:
-        data = request.get_json(force=True, silent=True) or {}
-        m = str(data.get("mode", "")).upper().strip()
-        if m not in (MODE_WHITE, MODE_COLORS):
-            return jsonify(ok=False, error="mode must be WHITE or COLORS"), 400
-        mode_selected = m
-        return jsonify(ok=True, mode=mode_selected)
-    except Exception as e:
-        return jsonify(ok=False, error=str(e)), 400
+@app.route("/ingest", methods=["POST"])
+def ingest():
+    payload = request.get_json(silent=True) or {}
+    snap = payload.get("history") or []
+    added = merge_snapshot(snap)
+    # processa apenas os novos itens
+    if added:
+        for n in snap[-added:]:
+            process_new_number(n)
+    return jsonify({"ok": True, "added": added, "time": datetime.now().isoformat()})
 
-@app.route("/bot", methods=["POST"])
-def api_bot():
-    global bot_active
-    try:
-        data = request.get_json(force=True, silent=True) or {}
-        act = str(data.get("action", "")).lower().strip()
-        if act == "start":
-            bot_active = True
-        elif act == "stop":
-            bot_active = False
-        else:
-            return jsonify(ok=False, error="action must be start or stop"), 400
-        return jsonify(ok=True, bot_active=bot_active)
-    except Exception as e:
-        return jsonify(ok=False, error=str(e)), 400
+@app.route("/control", methods=["POST"])
+def control():
+    global bot_on, mode_selected, open_trade, cool_color, cool_white
+    data = request.get_json(silent=True) or {}
+    if "bot_on" in data: bot_on = bool(data["bot_on"])
+    if "mode" in data and str(data["mode"]).upper() in ("BRANCO","CORES"):
+        mode_selected = str(data["mode"]).upper()
+        # Ao trocar o modo, encerra trade aberto
+        open_trade = None
+        cool_white = cool_color = 0
+    return jsonify({"ok": True, "bot_on": bot_on, "mode": mode_selected})
 
-@app.route("/ingest", methods=["POST", "OPTIONS"])
-def api_ingest():
-    global last_status, last_src
-    try:
-        payload = request.get_json(force=True, silent=True) or {}
-        hist = payload.get("history") or []
-        src  = payload.get("src", "?")
-        added = merge_snapshot_into_history(hist)
-        last_src = src
-        last_status = f"recebidos {len(hist)} (novos {added}) de {src} • {datetime.now().strftime('%H:%M:%S')}"
-        return jsonify(ok=True, added=added, time=datetime.utcnow().isoformat()+"Z")
-    except Exception as e:
-        return jsonify(ok=False, error=str(e)), 400
-
-# ------------------ Main local ------------------
-
+# ========================= Boot =====================================
 if __name__ == "__main__":
-    # Local: python app.py
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=5000)
