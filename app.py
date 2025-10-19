@@ -7,8 +7,16 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# ========================= Estado em memória =========================
+# ========================= Config =========================
 HISTORY_MAX = 600
+# Confluência mínima de estratégias para abrir sinal
+CONFLUENCE_MIN_WHITE = 2
+CONFLUENCE_MIN_COLOR = 2
+# Critério de risco ao escolher a estratégia "representante" no log:
+# "conservador" => prioriza menor max_gales; "agressivo" => maior max_gales
+SELECAO_RISCO = "conservador"  # "conservador" | "agressivo"
+
+# ========================= Estado em memória =========================
 history = deque(maxlen=HISTORY_MAX)      # números 0..14 (0 = branco)
 signals = deque(maxlen=300)              # sinais fechados/abertos (log leve)
 last_snapshot = []                       # último snapshot para merge sem duplicar
@@ -85,7 +93,7 @@ def streak_len_color(seq):
     c = 0
     last = None
     for v in reversed(seq):
-        if v == 0: 
+        if v == 0:
             if c==0: continue
             else: break
         col = "R" if is_red(v) else "B"
@@ -118,9 +126,7 @@ def whites_in_window(seq, k):
     return sum(1 for v in seq[-k:] if v==0)
 
 # ========================= Estratégias — BRANCO ======================
-# Cada item: {"name": str, "max_gales": int, "check": lambda seq -> (bool matched)}
 WHITE_STRATS = [
-    # Grupo Sequência / Repetição
     {"name": "Repetição curta (2x em 12)", "max_gales": 1,
      "check": lambda s: whites_in_window(s,12) >= 2},
     {"name": "Repetição 3x em 40", "max_gales": 1,
@@ -134,7 +140,6 @@ WHITE_STRATS = [
     {"name": "Sem repetir cor por 7+", "max_gales": 2,
      "check": lambda s: alternancias(s,10) >= 7},
 
-    # Grupo Espaçamento / Distância
     {"name": "Gap 15–20", "max_gales": 2,
      "check": lambda s: 15 <= gap_white(s) <= 20},
     {"name": "Gap 25+", "max_gales": 3,
@@ -152,13 +157,11 @@ WHITE_STRATS = [
     {"name": "Recuperação gap 30", "max_gales": 3,
      "check": lambda s: gap_white(s) >= 30},
 
-    # Alternância / Mudanças
     {"name": "Alternância longa (8+)", "max_gales": 2,
      "check": lambda s: alternancias(s,12) >= 8},
     {"name": "Alternância perfeita e quebra", "max_gales": 1,
      "check": lambda s: alternancias(s,6) >= 4 and streak_len_color(s)[0]>=2},
 
-    # Clusters de brancos
     {"name": "Cluster ativo (W≤10)", "max_gales": 1,
      "check": lambda s: whites_in_window(s,10)>=1},
     {"name": "Dois clusters próximos", "max_gales": 2,
@@ -166,19 +169,16 @@ WHITE_STRATS = [
     {"name": "Triplo em 40", "max_gales": 1,
      "check": lambda s: whites_in_window(s,40)>=3},
 
-    # Temporais / Contexto (placeholders simples, sem relógio real)
     {"name": "Marcador (pseudo 00/15/30/45)", "max_gales": 1,
      "check": lambda s: (len(s) % 15)==0},
     {"name": "Pós-queda de payout (proxy: muro de cor)", "max_gales": 2,
      "check": lambda s: streak_len_color(s)[0] >= 5},
 
-    # Confluências / Score
     {"name": "Score local ≥2 (gap alto + branco recente)", "max_gales": 2,
      "check": lambda s: (gap_white(s)>=18) and (whites_in_window(s,12)>=1)},
     {"name": "Taxa local ≥10% e 5 sem branco", "max_gales": 2,
      "check": lambda s: whites_in_window(s,20)>=2 and gap_white(s)>=5},
 
-    # Estatísticas / Longo prazo
     {"name": "Densidade baixa (≤2 em 50)", "max_gales": 2,
      "check": lambda s: whites_in_window(s,50) <= 2},
     {"name": "Pós-saturação (50 sem branco)", "max_gales": 3,
@@ -186,7 +186,6 @@ WHITE_STRATS = [
 ]
 
 # ========================= Estratégias — CORES =======================
-# Cada item: {"name": str, "max_gales": int, "check": lambda seq -> (matched, target 'R'|'B')}
 def dom_color_20(seq):
     r20, b20 = counts_last(seq, 20)
     if r20 + b20 < 6: return None
@@ -254,7 +253,7 @@ COLOR_STRATS = [
     {"name":"Confirmação com última cor + densidade", "max_gales":1,
      "check": lambda s: (lambda r,b,lc: ((lc=="R" and r>=11) or (lc=="B" and b>=11), lc))( *counts_last(s,20), last_color(s) )},
 
-    # Scores / Bias dinâmico (simples)
+    # Score simples
     {"name":"Score 3-de-5 (simulado)", "max_gales":2,
      "check": lambda s: (lambda lc,st,alt,r20,b20: (
         sum([
@@ -266,10 +265,15 @@ COLOR_STRATS = [
         ])>=3, lc))( last_color(s), *streak_len_color(s), *counts_last(s,20) )},
 ]
 
-# ========================= Motores (seleção de estratégia) ===========
-def select_white_strategy(seq):
-    """Retorna a primeira estratégia de BRANCO que bater.
-       Se quiser confluência, agregue várias e exija >=2 matches."""
+# ========================= Seletores com Confluência =================
+def selecionar_representante(strats):
+    """Escolhe a estratégia 'representante' para logar max_gales e nome."""
+    if not strats: return None
+    if SELECAO_RISCO == "agressivo":
+        return max(strats, key=lambda x: x["max_gales"])
+    return min(strats, key=lambda x: x["max_gales"])
+
+def select_white_with_confluence(seq):
     matches = []
     for strat in WHITE_STRATS:
         try:
@@ -277,27 +281,47 @@ def select_white_strategy(seq):
                 matches.append(strat)
         except Exception:
             continue
-    if not matches:
-        return None
-    # Ordenação simples por max_gales (opcional: priorizar menor risco)
-    matches.sort(key=lambda x: (-x["max_gales"]))
-    return matches[0]
+    if len(matches) < CONFLUENCE_MIN_WHITE:
+        return None, 0  # (estratégia_representante, confluência)
+    rep = selecionar_representante(matches)
+    return rep, len(matches)
 
-def select_color_strategy(seq):
-    """Retorna (estratégia, target 'R'|'B') para CORES, se houver match."""
+def select_color_with_confluence(seq):
+    # Conta votos por cor e lista estratégias que votaram em cada uma
+    votes = {"R": [], "B": []}
     for strat in COLOR_STRATS:
         try:
-            m, tgt = strat["check"](seq)
-            if m and tgt in ("R","B"):
-                return strat, tgt
+            ok, tgt = strat["check"](seq)
+            if ok and tgt in ("R","B"):
+                votes[tgt].append(strat)
         except Exception:
             continue
-    return None, None
+
+    r_votes = len(votes["R"])
+    b_votes = len(votes["B"])
+    # Decide cor com base na confluência mínima e maioria
+    target = None
+    conf = 0
+    if r_votes >= CONFLUENCE_MIN_COLOR or b_votes >= CONFLUENCE_MIN_COLOR:
+        if r_votes > b_votes:
+            target, conf = "R", r_votes
+        elif b_votes > r_votes:
+            target, conf = "B", b_votes
+        else:
+            # Empate: desempata pela dominância de 20
+            dom = dom_color_20(seq)
+            if dom in ("R","B"):
+                target = dom
+                conf = len(votes[dom])
+    if not target:
+        return None, None, 0
+
+    rep = selecionar_representante(votes[target])
+    return rep, target, conf
 
 # ========================= Probabilidades p/ UI ======================
 def estimate_probs(seq):
     baseW = 1.0/15.0  # 6.67% base
-    # Heurística leve
     w_gap = gap_white(seq)
     extraW = 0.0
     if w_gap >= 18: extraW += 0.03
@@ -317,15 +341,17 @@ def estimate_probs(seq):
     return {"W":pW,"R":pR,"B":pB,"rec":rec}
 
 # ========================= Sinais / Logs =============================
-def format_label(target, step, max_gales):
-    """Exibe o rótulo do sinal (com gale)."""
+def format_label(target, step, max_gales, conf=None):
+    """Exibe o rótulo do sinal (com gale e confluência opcional)."""
     name = {"W":"BRANCO","R":"VERMELHO","B":"PRETO"}[target]
+    conf_txt = (f" — Confluência: {conf}" if conf else "")
     if step == 0:
-        return f"{name} (até {max_gales} gale{'s' if max_gales!=1 else ''})"
+        return f"{name} (até {max_gales} gale{'s' if max_gales!=1 else ''}){conf_txt}"
     else:
         return f"{name} — GALE {step}"
 
-def append_signal_entry(mode, target, step, status="open", came=None, strategy=None, max_gales=0):
+def append_signal_entry(mode, target, step, status="open", came=None,
+                        strategy=None, max_gales=0, conf=None):
     signal = {
         "ts": now_hhmmss(),
         "mode": mode,                     # 'BRANCO'|'CORES'
@@ -333,8 +359,9 @@ def append_signal_entry(mode, target, step, status="open", came=None, strategy=N
         "status": status,                 # 'open'|'WIN'|'LOSS'|'GALE'
         "gale": step,                     # 0,1,2,3...
         "max_gales": max_gales,           # limite daquela estratégia
-        "label": format_label(target, step, max_gales),
+        "label": format_label(target, step, max_gales, conf),
         "strategy": strategy,
+        "confluence": conf,
         "came": came
     }
     signals.appendleft(signal)
@@ -348,35 +375,39 @@ def try_open_trade_if_needed():
 
     if mode_selected == "BRANCO":
         if cool_white > 0: return
-        sel = select_white_strategy(seq)
-        if sel:
+        rep, conf = select_white_with_confluence(seq)
+        if rep:
             open_trade = {
                 "type": "white",
                 "target": "W",
                 "step": 0,
-                "max_gales": sel["max_gales"],
-                "strategy": sel["name"],
+                "max_gales": rep["max_gales"],
+                "strategy": rep["name"],
+                "confluence": conf,
                 "opened_at": len(seq)
             }
-            append_signal_entry("BRANCO","W",0,status="open",strategy=sel["name"],max_gales=sel["max_gales"])
+            append_signal_entry("BRANCO","W",0,status="open",
+                                strategy=rep["name"],max_gales=rep["max_gales"],conf=conf)
     else:
         if cool_color > 0: return
-        strat, tgt = select_color_strategy(seq)
-        if strat and tgt:
+        rep, tgt, conf = select_color_with_confluence(seq)
+        if rep and tgt:
             open_trade = {
                 "type": "color",
                 "target": tgt,
                 "step": 0,
-                "max_gales": strat["max_gales"],
-                "strategy": strat["name"],
+                "max_gales": rep["max_gales"],
+                "strategy": rep["name"],
+                "confluence": conf,
                 "opened_at": len(seq)
             }
-            append_signal_entry("CORES",tgt,0,status="open",strategy=strat["name"],max_gales=strat["max_gales"])
+            append_signal_entry("CORES",tgt,0,status="open",
+                                strategy=rep["name"],max_gales=rep["max_gales"],conf=conf)
 
 def process_new_number(n):
     """Chamado a cada número novo e avalia trade aberto."""
     global open_trade, cool_color, cool_white
-    # Primeiro tenta abrir trade se não houver
+    # Tenta abrir caso não haja trade
     if not open_trade:
         try_open_trade_if_needed()
         return
@@ -389,21 +420,22 @@ def process_new_number(n):
         hit = (n == 0)
         if hit:
             append_signal_entry("BRANCO","W", open_trade["step"], status="WIN", came=n,
-                                strategy=open_trade["strategy"], max_gales=open_trade["max_gales"])
+                                strategy=open_trade["strategy"], max_gales=open_trade["max_gales"],
+                                conf=open_trade.get("confluence"))
             open_trade = None
             cool_white = 5
         else:
-            # errou branco → tenta gale?
             if open_trade["step"] >= open_trade["max_gales"]:
                 append_signal_entry("BRANCO","W", open_trade["step"], status="LOSS", came=n,
-                                    strategy=open_trade["strategy"], max_gales=open_trade["max_gales"])
+                                    strategy=open_trade["strategy"], max_gales=open_trade["max_gales"],
+                                    conf=open_trade.get("confluence"))
                 open_trade = None
                 cool_white = 5
             else:
-                # promove para GALE
                 open_trade["step"] += 1
                 append_signal_entry("BRANCO","W", open_trade["step"], status="GALE", came=n,
-                                    strategy=open_trade["strategy"], max_gales=open_trade["max_gales"])
+                                    strategy=open_trade["strategy"], max_gales=open_trade["max_gales"],
+                                    conf=open_trade.get("confluence"))
 
     else:  # color
         tgt = open_trade["target"]  # 'R' ou 'B'
@@ -411,20 +443,22 @@ def process_new_number(n):
         hit = (n != 0) and (came == tgt)
         if hit:
             append_signal_entry("CORES", tgt, open_trade["step"], status="WIN", came=n,
-                                strategy=open_trade["strategy"], max_gales=open_trade["max_gales"])
+                                strategy=open_trade["strategy"], max_gales=open_trade["max_gales"],
+                                conf=open_trade.get("confluence"))
             open_trade = None
             cool_color = 2
         else:
-            # errou → gale?
             if open_trade["step"] >= open_trade["max_gales"]:
                 append_signal_entry("CORES", tgt, open_trade["step"], status="LOSS", came=n,
-                                    strategy=open_trade["strategy"], max_gales=open_trade["max_gales"])
+                                    strategy=open_trade["strategy"], max_gales=open_trade["max_gales"],
+                                    conf=open_trade.get("confluence"))
                 open_trade = None
                 cool_color = 2
             else:
                 open_trade["step"] += 1
                 append_signal_entry("CORES", tgt, open_trade["step"], status="GALE", came=n,
-                                    strategy=open_trade["strategy"], max_gales=open_trade["max_gales"])
+                                    strategy=open_trade["strategy"], max_gales=open_trade["max_gales"],
+                                    conf=open_trade.get("confluence"))
 
 # ========================= Rotas HTTP ================================
 @app.route("/")
@@ -449,7 +483,12 @@ def state():
         },
         "signals": list(signals)[:60],
         "cooldowns": {"white": max(0,cool_white), "color": max(0,cool_color)},
-        "open_trade": open_trade
+        "open_trade": open_trade,
+        "confluence": {
+            "white_min": CONFLUENCE_MIN_WHITE,
+            "color_min": CONFLUENCE_MIN_COLOR,
+            "selecao_risco": SELECAO_RISCO
+        }
     }
     return jsonify(out)
 
@@ -474,7 +513,30 @@ def control():
         # Ao trocar o modo, encerra trade aberto
         open_trade = None
         cool_white = cool_color = 0
-    return jsonify({"ok": True, "bot_on": bot_on, "mode": mode_selected})
+    # (Opcional) alterar confluência e risco via API
+    if "confluence_white" in data:
+        try:
+            val = int(data["confluence_white"])
+            if val >= 1: 
+                globals()["CONFLUENCE_MIN_WHITE"] = val
+        except: pass
+    if "confluence_color" in data:
+        try:
+            val = int(data["confluence_color"])
+            if val >= 1: 
+                globals()["CONFLUENCE_MIN_COLOR"] = val
+        except: pass
+    if "risk" in data and data["risk"] in ("conservador","agressivo"):
+        globals()["SELECAO_RISCO"] = data["risk"]
+
+    return jsonify({
+        "ok": True,
+        "bot_on": bot_on,
+        "mode": mode_selected,
+        "confluence_white": CONFLUENCE_MIN_WHITE,
+        "confluence_color": CONFLUENCE_MIN_COLOR,
+        "risk": SELECAO_RISCO
+    })
 
 # ========================= Boot =====================================
 if __name__ == "__main__":
