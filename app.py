@@ -8,7 +8,7 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# ================= Estado =================
+# ========================== Estado ==========================
 HISTORY_MAX = 2000
 history = deque(maxlen=HISTORY_MAX)          # ints 0..14 (0 = branco)
 current_mode = "WHITE"                       # "WHITE" | "COLORS"
@@ -18,9 +18,9 @@ bot_active = False
 GALE_STEPS = [1, 2, 4]   # unidades (ex.: 1u, 2u, 4u)
 MAX_GALES  = 2           # G0..G2
 trade = None             # dict ativo para cores
-signals = deque(maxlen=200)  # histórico de sinais (mais recentes primeiro)
+signals = deque(maxlen=300)  # histórico de sinais (mais recentes primeiro)
 
-# ================= Helpers =================
+# ========================= Helpers ==========================
 def is_red(n):   return 1 <= n <= 7
 def is_black(n): return 8 <= n <= 14
 
@@ -58,7 +58,7 @@ def pct(lst, p):
     s=sorted(lst); k=max(0, min(len(s)-1, int(round((p/100)*(len(s)-1)))))
     return float(s[k])
 
-# ================= Heurísticas compactas =================
+# ================= Heurísticas compactas ====================
 def white_signal(seq):
     """Retorna {"ok":bool, "reasons":[...], "detail":str}"""
     if not seq: return {"ok": False}
@@ -134,7 +134,7 @@ def _append_signal(mode, target, status="open", gale_step=None, came_n=None, rea
         "reasons": reasons or []
     })
 
-# ================= Engine: start/stop + processamento =================
+# ================= Engine: start/stop + processamento =========
 def open_trade_colors(target, reasons):
     global trade
     trade = {
@@ -167,24 +167,20 @@ def process_new_number(n):
     global trade
     if current_mode=="WHITE":
         # WHITE = one-shot, sem gale
-        sig = white_signal(history)
-        if sig["ok"]:
-            _append_signal("WHITE", "W", "open", gale_step=None, reasons=sig["reasons"])
-            # como é one-shot, consideramos 'resultado' no próximo número:
-            # se vier 0 agora -> WIN; senão -> LOSS e pronto (sem gale)
+        sw = white_signal(history)
+        if sw["ok"]:
+            _append_signal("WHITE", "W", "open", gale_step=None, reasons=sw["reasons"])
             if n==0:
-                signals[0]["status"]="win"
-                signals[0]["came_n"]=0
+                signals[0]["status"]="win"; signals[0]["came_n"]=0
             else:
-                signals[0]["status"]="loss"
-                signals[0]["came_n"]=n
+                signals[0]["status"]="loss"; signals[0]["came_n"]=n
         return
 
     # COLORS com gale
     if not trade:
-        sigC = color_signal(history)
-        if sigC["ok"]:
-            open_trade_colors(sigC["target"], sigC["reasons"])
+        sc = color_signal(history)
+        if sc["ok"]:
+            open_trade_colors(sc["target"], sc["reasons"])
     else:
         # protege: ignora duplicata do número visto na abertura
         if trade.get("await_first_unique", False):
@@ -205,7 +201,7 @@ def process_new_number(n):
             else:
                 trade["step"] += 1
 
-# ================= HTML UI =================
+# =========================== HTML UI ==========================
 HTML = """<!doctype html><meta charset="utf-8">
 <title>SNIPER BLAZE PRO — WEB</title>
 <style>
@@ -237,7 +233,7 @@ HTML = """<!doctype html><meta charset="utf-8">
     <div class="k">
       <b>Modo:</b>
       <button id="btnW">⚪ BRANCO</button>
-      <button id="btnC">🔴⚫ CORES</button>
+      <button id="btnC">🔴 CORES</button>
       <span id="modeTag" class="chip">WHITE</span>
     </div>
     <div class="k">
@@ -256,7 +252,7 @@ HTML = """<!doctype html><meta charset="utf-8">
     <div class="bar"><span id="bb" style="background:#0e0e10;width:0%"></span></div>
 
     <h3 style="margin-top:14px">Cor + indicada</h3>
-    <div id="pick" class="sq" style="width:200px;height:110px;border:2px solid #2b1e4d;display:flex;flex-direction:column;gap:4px"></div>
+    <div id="pick" class="sq" style="width:200px;height:110px;border:2px solid #2b1e4d;display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:center"></div>
     <div id="why" style="color:#c9c4de;margin-top:8px;font-size:13px">Motivos: —</div>
   </div>
 
@@ -291,16 +287,26 @@ function paintBoxes(lst){
     boxes.appendChild(d);
   });
 }
-function setPick(tgt, pct){
+
+// novo: mostra cartão só quando há entrada; senão exibe “sem entrada”
+function showPick(pick){
   const el=document.getElementById('pick');
+  if(!pick){
+    el.style.background='#1a0f38';
+    el.style.color='#e8e6f3';
+    el.innerHTML = '<div style="opacity:.8">— sem entrada —</div>';
+    return;
+  }
+  const [tgt, pv] = pick;
   el.textContent='';
-  el.style.color = tgt==='W' ? '#111' : '#fff';
+  el.style.color = (tgt==='W' ? '#111' : '#fff');
   if(tgt==='W') el.style.background='#fff';
   if(tgt==='R') el.style.background='#ff2e2e';
   if(tgt==='B') el.style.background='#0e0e10';
   const label = (tgt==='W'?'⚪ Branco':(tgt==='R'?'🔴 Vermelho':'⚫ Preto'));
-  el.innerHTML = '<div>'+label+'</div><div style="font-size:28px;font-weight:800">'+Math.round(pct*100)+'%</div>';
+  el.innerHTML = '<div>'+label+'</div><div style="font-size:28px;font-weight:800">'+Math.round(pv*100)+'%</div>';
 }
+
 function paintSignals(sigs){
   const tb=document.querySelector('#sigTbl tbody'); tb.innerHTML='';
   sigs.forEach(s=>{
@@ -323,7 +329,8 @@ async function tick(){
     document.getElementById('bw').style.width=(s.probs.W*100)+'%';
     document.getElementById('br').style.width=(s.probs.R*100)+'%';
     document.getElementById('bb').style.width=(s.probs.B*100)+'%';
-    if(s.pick && s.pick[0]) setPick(s.pick[0], s.pick[1]);
+    // novo: usa showPick com suporte a “sem entrada”
+    if(s.pick){ showPick(s.pick); } else { showPick(null); }
     document.getElementById('why').textContent = 'Motivos: ' + (s.reasons && s.reasons.length ? s.reasons.join(', ') : '—');
     document.getElementById('detail').textContent = s.detail || '—';
     paintSignals(s.signals || []);
@@ -333,7 +340,7 @@ setInterval(tick, 900); tick();
 </script>
 """
 
-# ================= Endpoints =================
+# =========================== Endpoints =======================
 @app.get("/")
 def index():
     return render_template_string(HTML)
@@ -362,18 +369,33 @@ def toggle_bot():
 def state():
     lst = list(history)[-12:]
     probs = estimate_probs(history)
-    reasons=[]; detail=''
-    pick = probs["rec"]
+
+    # por padrão, não forçamos indicação
+    pick = None
+    reasons = []
+    detail = ""
+
     if current_mode == "WHITE":
         sw = white_signal(history)
-        reasons = sw["reasons"]; detail = sw.get("detail","")
+        reasons = sw["reasons"]
+        detail = sw.get("detail", "")
+        # Só indica branco se houver gatilho de branco
         if sw["ok"]:
             pick = ("W", probs["W"])
-    else:
+    else:  # COLORS
         sc = color_signal(history)
-        reasons = sc.get("reasons",[])
+        reasons = sc.get("reasons", [])
+        # Só indica a cor se houver gatilho válido agora
         if sc.get("ok"):
-            pick = (sc.get("target"), probs[sc.get("target")])
+            tgt = sc.get("target")
+            pick = (tgt, probs[tgt])
+
+    # Se existir trade de CORES aberto, forçamos o card para o alvo da operação
+    if trade:
+        tgt = trade["target"]
+        pick = (tgt, probs[tgt])
+        reasons = trade.get("reasons", reasons)
+
     return jsonify(
         last=lst, size=len(history),
         mode=current_mode, bot_active=bot_active,
