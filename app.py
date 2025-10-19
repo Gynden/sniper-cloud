@@ -2,8 +2,10 @@ import os, json
 from datetime import datetime
 from collections import deque
 from flask import Flask, request, jsonify, render_template_string
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 history = deque(maxlen=2000)
 
