@@ -24,7 +24,6 @@
     }
     .wrap{max-width:1280px;margin:22px auto;padding:0 16px}
 
-    /* Panels & header */
     .panel{
       background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
       border:1px solid var(--stroke);border-radius:16px;padding:14px;backdrop-filter: blur(8px);
@@ -43,26 +42,25 @@
     .g2{grid-template-columns:1.25fr 1fr}
     @media (max-width:1024px){.g2{grid-template-columns:1fr}}
 
-    /* HERO banner */
+    /* ===== Banner IA ===== */
     .neural-banner{
       display:grid;grid-template-columns:1fr 1.2fr;gap:18px;align-items:center;
       border:1px solid var(--stroke);border-radius:18px;padding:18px;
       background:linear-gradient(180deg, rgba(159,91,255,.07), rgba(0,0,0,0));
       position:relative;overflow:hidden;
     }
+    .left-col{display:grid;grid-template-rows:auto 1fr;gap:10px;align-items:start}
+    #confirm-slot{display:flex;justify-content:center;align-items:center;min-height:30px}
     .confirm-badge{
-      position:absolute; right:calc(50% + 56px); top:18px; transform:translateX(50%);
       padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.25);
       background:linear-gradient(90deg,#00ffcc,#9f5bff); color:#0b0b13;font-weight:900;
-      letter-spacing:.2px;font-size:12px; display:none; box-shadow:0 8px 20px rgba(0,255,204,.25);
-      animation:pop .25s ease-out;
+      letter-spacing:.2px;font-size:12px; display:none; box-shadow:0 8px 20px rgba(0,255,204,.18);
     }
-    @keyframes pop{from{transform:translateX(50%) scale(.9);opacity:.0}to{transform:translateX(50%) scale(1);opacity:1}}
     .live{position:absolute;right:18px;top:18px;background:var(--ok);color:#06130a;padding:4px 10px;border-radius:999px;font-weight:800;font-size:12px;animation:pulse 1.6s infinite}
     @keyframes pulse{0%{opacity:1}50%{opacity:.45}100%{opacity:1}}
 
     .brain{
-      width:100%;max-width:320px;aspect-ratio:1/1;margin:auto;border-radius:50%;
+      width:100%;max-width:300px;aspect-ratio:1/1;margin:auto;border-radius:50%;
       background:radial-gradient(closest-side, rgba(159,91,255,.10), transparent 70%);
       display:grid;place-items:center;position:relative;
     }
@@ -73,16 +71,18 @@
       animation:spin 9s linear infinite; filter:drop-shadow(0 0 10px rgba(159,91,255,.35));
     }
     @keyframes spin{to{transform:rotate(360deg)}}
-    .ring--idle{opacity:.55}
+    .ring--idle{opacity:.6}
     .ring--open{filter:drop-shadow(0 0 16px rgba(0,255,204,.35))}
     .ring--gale{background:conic-gradient(from 90deg,#f59e0b,#ef4444,#f59e0b,#ef4444)}
+
     .brain-core{text-align:center;display:grid;place-items:center;padding:8px 10px}
     .brain-core .tgt{
       font-weight:900;letter-spacing:.2px;
-      font-size:clamp(14px, 2.1vw, 20px); /* não estoura */
-      white-space:nowrap;max-width:86%;overflow:hidden;text-overflow:ellipsis;
+      font-size:clamp(14px,2vw,19px);
+      line-height:1.1;white-space:nowrap;max-width:90%;
+      overflow:hidden;text-overflow:ellipsis;
     }
-    .brain-core .pct{font-size:clamp(14px,1.9vw,18px);opacity:.92}
+    .brain-core .pct{font-size:clamp(14px,1.8vw,18px);opacity:.92}
 
     .meta{display:grid;gap:10px}
     .meta-row{display:flex;justify-content:space-between;align-items:center;gap:10px}
@@ -105,17 +105,16 @@
 
     .hide{display:none !important}
 
-    /* Timeline chips (histórico) */
+    /* ===== Histórico (timeline mínima) ===== */
     .chips{display:flex;gap:8px;flex-wrap:wrap}
     .chip-mini{
       border:1px solid var(--stroke);background:rgba(21,21,38,.7);
-      padding:6px 10px;border-radius:999px;font-weight:800;font-size:12px;
-      display:inline-flex;align-items:center;gap:8px;animation:fadein .25s ease;
+      padding:4px 8px;border-radius:999px;font-weight:800;font-size:11px;
+      display:inline-flex;align-items:center;gap:6px;animation:fadein .2s ease;
     }
     @keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-    .dot{width:9px;height:9px;border-radius:999px;display:inline-block}
+    .dot{width:8px;height:8px;border-radius:999px;display:inline-block}
     .lab{opacity:.95}
-    .win{color:var(--ok)} .loss{color:var(--bad)} .gale{color:var(--warn)} .open{color:#7aa5ff} .analyzing{color:var(--muted)}
   </style>
 </head>
 <body>
@@ -148,19 +147,21 @@
         </div>
 
         <div id="banner" class="neural-banner">
-          <div class="confirm-badge" id="confirm-badge">ENTRADA CONFIRMADA ✅</div>
-          <div class="live" id="live-badge" style="display:none">LIVE</div>
-
-          <!-- CÍRCULO -->
-          <div class="brain">
-            <div id="ring" class="ring ring--idle"></div>
-            <div class="brain-core">
-              <div class="tgt" id="banner-tgt">—</div>
-              <div class="pct" id="banner-pct">—%</div>
+          <!-- Coluna esquerda: badge + círculo -->
+          <div class="left-col">
+            <div id="confirm-slot">
+              <span class="confirm-badge" id="confirm-badge">ENTRADA CONFIRMADA ✅</span>
+            </div>
+            <div class="brain">
+              <div id="ring" class="ring ring--idle"></div>
+              <div class="brain-core">
+                <div class="tgt" id="banner-tgt">—</div>
+                <div class="pct" id="banner-pct">—%</div>
+              </div>
             </div>
           </div>
 
-          <!-- meta -->
+          <!-- Coluna direita: meta -->
           <div class="meta">
             <div class="meta-row"><span class="tag">Alvo</span><b id="meta-alvo">—</b></div>
             <div class="meta-row"><span class="tag">Estratégia</span><b id="meta-strategy">—</b></div>
@@ -168,6 +169,8 @@
             <div class="meta-row"><span class="tag">Gales</span><b id="meta-gales">0/0</b></div>
             <div class="meta-row"><span class="tag">Status</span><b id="meta-rec">—</b></div>
           </div>
+
+          <div class="live" id="live-badge" style="display:none">LIVE</div>
         </div>
 
         <!-- KPIs -->
@@ -298,22 +301,24 @@
       $('#k-streak').textContent= streak>0? `+${streak}` : `${streak}`;
     }
 
-    // Histórico (chips/timeline)
+    // Histórico (chips/timeline minimal)
     function renderMiniHistory(rows){
       const el = $('#mini-hits');
-      const last = (rows||[]).slice(0,18);
+      const last = (rows||[]).slice(0,22);
       if(!last.length){ $('#mini-history').classList.add('hide'); el.innerHTML=''; return; }
       $('#mini-history').classList.remove('hide');
 
-      const color = s => s==='WIN'?'var(--ok)':s==='LOSS'?'var(--bad)':s==='GALE'?'var(--warn)': (s==='open' || s==='OPEN') ? '#7aa5ff' : 'var(--muted)';
-      const cls   = s => s==='WIN'?'win':s==='LOSS'?'loss':s==='GALE'?'gale': (s==='open'||s==='OPEN')?'open':'analyzing';
+      const color = s => s==='WIN'?'var(--ok)':s==='LOSS'?'var(--bad)':s==='GALE'?'var(--warn)': (s==='open'||s==='OPEN') ? '#7aa5ff' : 'var(--muted)';
+      const sym   = s => ({ANALYZING:'A', open:'O', OPEN:'O', WIN:'W', GALE:'G', LOSS:'L'})[s] || 'A';
 
-      el.innerHTML = last.map(r=>`
-        <span class="chip-mini ${cls(r.status)}" title="${r.label||r.status}">
-          <span class="dot" style="background:${color(r.status)}"></span>
-          <span class="lab">${(r.status||'').toUpperCase()} ${r.target?('• '+r.target):''}</span>
-        </span>
-      `).join('');
+      el.innerHTML = last.map(r=>{
+        const c = color(r.status);
+        const t = r.target ? `<small style="opacity:.7;margin-left:4px">${r.target}</small>` : '';
+        return `<span class="chip-mini" title="${r.label||r.status}">
+                  <span class="dot" style="background:${c}"></span>
+                  <span class="lab" style="color:${c}">${sym(r.status)}</span>${t}
+                </span>`;
+      }).join('');
     }
 
     // Estado inicial
