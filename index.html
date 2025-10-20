@@ -44,7 +44,7 @@ body{
 .summary .pill{background:rgba(21,21,38,.7);border:1px solid var(--stroke);padding:6px 10px;border-radius:999px;font-weight:800}
 .ping{opacity:.8}
 
-/* Card IA refeito */
+/* ===== Banner Neural ===== */
 .neural-banner{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:stretch;
   border:1px solid var(--stroke);border-radius:18px;padding:16px;
   background:linear-gradient(180deg, rgba(159,91,255,.07), rgba(0,0,0,0));position:relative}
@@ -57,7 +57,7 @@ body{
 .q-badge.low{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.35)}
 .timer{font-weight:900;padding:4px 10px;border:1px solid var(--stroke);border-radius:999px;background:rgba(21,21,38,.7);min-width:64px;text-align:center}
 
-.left{display:grid;place-items:center;border:1px dashed transparent}
+.left{display:grid;place-items:center;}
 .brain{width:100%;max-width:320px;aspect-ratio:1/1;border-radius:50%;display:grid;place-items:center;position:relative}
 .ring{position:absolute;inset:7.5%;border-radius:50%;
   background:conic-gradient(from 90deg, var(--neon), var(--neon2), var(--neon), var(--neon2));
@@ -67,21 +67,22 @@ body{
 @keyframes spin{to{transform:rotate(360deg)}}
 .ring--idle{opacity:.6} .ring--open{filter:drop-shadow(0 0 16px rgba(0,255,204,.35))}
 .ring--gale{background:conic-gradient(from 90deg,#f59e0b,#ef4444,#f59e0b,#ef4444)}
+
+/* miolo colorido */
+.disc{position:absolute;inset:calc(7.5% + 10px);border-radius:50%;box-shadow:inset 0 0 24px rgba(0,0,0,.25),0 8px 24px rgba(0,0,0,.25)}
+.disc::after{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.06),transparent 60%)}
+.disc.red{background:linear-gradient(180deg,#ff3856,#b31830);}
+.disc.black{background:linear-gradient(180deg,#10151b,#0a0d12);}
+.disc.white{background:linear-gradient(180deg,#ffffff,#e9ebef);border:1px solid #d9d9d9;}
+
 .brain-core{text-align:center;display:grid;place-items:center}
-.swatch{width:64px;height:64px;border-radius:50%;border:2px solid rgba(255,255,255,.22);box-shadow:0 6px 14px rgba(0,0,0,.35), inset 0 0 18px rgba(255,255,255,.06);margin-bottom:8px}
-.swatch.red{background:#ff2b46}.swatch.black{background:#0b0f14}.swatch.white{background:#fff;border-color:#d9d9d9;box-shadow:0 6px 14px rgba(0,0,0,.25), inset 0 0 10px rgba(0,0,0,.05)}
-.pct{font-size:18px;opacity:.92;font-weight:800}
+.pct{font-size:18px;opacity:.92;font-weight:800;z-index:2}
 .alvo{font-weight:900;margin-top:2px}
 
 .right{display:grid;gap:10px}
 .item{background:rgba(21,21,38,.7);border:1px solid var(--stroke);border-radius:12px;padding:10px}
 .item-title{font-size:12px;color:var(--muted);margin-bottom:6px}
 .item-value{font-weight:900}
-
-.gsteps{display:flex;align-items:center;gap:6px;margin-top:6px}
-.gsteps .step{width:12px;height:12px;border-radius:3px;border:1px solid var(--stroke);background:#1a1b2d}
-.gsteps .step.on{background:#f59e0b;border-color:#f59e0b}
-.gsteps .glabel{margin-left:6px;opacity:.85;font-weight:800}
 
 .coolbars{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .cool{display:flex;gap:6px;align-items:center}
@@ -96,47 +97,41 @@ body{
 .heat{height:8px;border-radius:6px;background:#151626;border:1px solid var(--stroke);display:flex;overflow:hidden;margin-top:6px}
 .heat i{flex:1}
 .heat .r{background:#ff2b46}.heat .b{background:#0f1117}.heat .w{background:#ffffff}
-
 .hide{display:none!important}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <!-- Topbar -->
   <div class="panel">
     <div class="topbar">
       <h1>SNIPER BLAZE — Neural Trader</h1>
       <div class="summary">
         <span class="pill" id="state-pill">OFFLINE • —</span>
-        <span class="pill ping" id="ping-pill" title="latência do /state">ping —ms</span>
+        <span class="pill ping" id="ping-pill">ping —ms</span>
         <div class="seg">
-          <button type="button" class="active" id="mode-cores" title="Modo CORES (C)">CORES</button>
-          <button type="button" id="mode-branco" title="Modo BRANCO (B)">BRANCO</button>
+          <button class="active" id="mode-cores">CORES</button>
+          <button id="mode-branco">BRANCO</button>
         </div>
-        <button type="button" class="btn" id="btn-start" title="Iniciar (I)">Iniciar</button>
-        <button type="button" class="btn ghost" id="btn-stop" title="Parar (P)">Parar</button>
+        <button class="btn" id="btn-start">Iniciar</button>
+        <button class="btn ghost" id="btn-stop">Parar</button>
       </div>
     </div>
   </div>
 
-  <!-- Grid -->
   <div class="row g2" style="margin-top:14px">
-    <!-- Col 1: Card IA -->
     <div class="panel">
       <div class="title">
         <div class="kpi">
           <span class="chip" id="chip-dom">Dom20: —</span>
           <span class="chip" id="chip-gap">Gap W: —</span>
         </div>
-        <!-- cooldown compacto também aqui -->
         <div class="coolbars">
-          <div class="cool" title="Cooldown do Branco"><span>Branco</span><div class="bar"><i id="cbw"></i></div><b id="cbw-t">0</b></div>
-          <div class="cool" title="Cooldown de Cores"><span>Cores</span><div class="bar"><i id="cbc"></i></div><b id="cbc-t">0</b></div>
+          <div class="cool"><span>Branco</span><div class="bar"><i id="cbw"></i></div><b id="cbw-t">0</b></div>
+          <div class="cool"><span>Cores</span><div class="bar"><i id="cbc"></i></div><b id="cbc-t">0</b></div>
         </div>
       </div>
 
       <div class="neural-banner">
-        <!-- coluna esquerda -->
         <div class="left">
           <div class="header-line">
             <span class="confirm-badge" id="confirm-badge">ENTRADA CONFIRMADA ✅</span>
@@ -147,38 +142,22 @@ body{
           <div class="brain">
             <div id="ring" class="ring ring--idle"></div>
             <div class="brain-core">
-              <div class="swatch" id="tgt-swatch" aria-label="cor alvo"></div>
+              <div class="disc" id="tgt-disc"></div>
               <div class="pct" id="banner-pct">—%</div>
               <div class="alvo" id="alvo-name">—</div>
             </div>
           </div>
         </div>
 
-        <!-- coluna direita -->
         <div class="right">
-          <div class="item" title="Estratégia representante">
-            <div class="item-title">Estratégia</div>
-            <div class="item-value" id="meta-strategy">—</div>
-          </div>
-          <div class="item" title="Checks que votaram a favor">
-            <div class="item-title">Confluência</div>
-            <div class="item-value" id="meta-conf">—</div>
-          </div>
-          <div class="item" title="Progresso de GALE">
-            <div class="item-title">Gales</div>
-            <div><b id="meta-gales">0/0</b>
-              <div id="gale-steps" class="gsteps" style="margin-top:6px"></div>
-            </div>
-          </div>
-          <div class="item" title="Estado do sinal">
-            <div class="item-title">Status</div>
-            <div class="item-value" id="meta-rec">—</div>
-          </div>
+          <div class="item"><div class="item-title">Estratégia</div><div class="item-value" id="meta-strategy">—</div></div>
+          <div class="item"><div class="item-title">Confluência</div><div class="item-value" id="meta-conf">—</div></div>
+          <div class="item"><div class="item-title">Gales</div><div class="item-value" id="gales-max">—</div></div>
+          <div class="item"><div class="item-title">Status</div><div class="item-value" id="meta-rec">—</div></div>
         </div>
       </div>
     </div>
 
-    <!-- Col 2: Giros + Heatmap (histórico rápido foi removido) -->
     <div class="panel">
       <div class="title"><strong>Últimos giros</strong></div>
       <div id="rolls" class="scroll"></div>
@@ -188,143 +167,44 @@ body{
 </div>
 
 <script>
-const API = location.origin;
-const $ = s => document.querySelector(s);
+const API=location.origin;const $=s=>document.querySelector(s);
+let lastHistLen=0,lastSpinAt=Date.now(),spinMs=12000;
+setInterval(()=>{const el=$('#round-timer');if(!el)return;const now=Date.now(),remain=Math.max(0,lastSpinAt+spinMs-now);const sec=Math.ceil(remain/1000),mm=Math.floor(sec/60),ss=(sec%60).toString().padStart(2,'0');el.textContent=`${mm}:${ss}`;},200);
 
-// ===== timers =====
-let lastHistLen = 0, lastSpinAt = Date.now(), spinMs = 12000;
-setInterval(()=>{ const el=$('#round-timer'); if(!el) return;
-  const now=Date.now(), remain=Math.max(0,lastSpinAt+spinMs-now);
-  const sec=Math.ceil(remain/1000), mm=Math.floor(sec/60), ss=(sec%60).toString().padStart(2,'0');
-  el.textContent = `${mm}:${ss}`;
-}, 200);
-
-// ===== UI controls =====
-function setActiveModeButton(mode){
-  const cores=$('#mode-cores'), branco=$('#mode-branco');
-  if(mode==='CORES'){ cores.classList.add('active'); branco.classList.remove('active'); }
-  else { branco.classList.add('active'); cores.classList.remove('active'); }
-}
+function setActiveModeButton(m){const c=$('#mode-cores'),b=$('#mode-branco');if(m==='CORES'){c.classList.add('active');b.classList.remove('active');}else{b.classList.add('active');c.classList.remove('active');}}
 $('#mode-cores').onclick=()=>fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'CORES'})}).then(()=>setActiveModeButton('CORES'));
 $('#mode-branco').onclick=()=>fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'BRANCO'})}).then(()=>setActiveModeButton('BRANCO'));
 $('#btn-start').onclick=()=>fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:true})}).then(()=>$('#state-pill').textContent='ONLINE • —');
 $('#btn-stop').onclick=()=>fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:false})}).then(()=>$('#state-pill').textContent='OFFLINE • —');
 
-// ===== helpers =====
-function ball(n){ if(n===0) return `<div class="ball W">0</div>`; const c=(n>=1&&n<=7)?'R':'B'; return `<div class="ball ${c}">${n}</div>`; }
-function human(t){ return t==='W'?'Branco':(t==='R'?'Vermelho':'Preto'); }
-function setSwatchFromTarget(tgt){ const sw=$('#tgt-swatch'); sw.className='swatch'; if(tgt==='W') sw.classList.add('white'); else if(tgt==='R') sw.classList.add('red'); else sw.classList.add('black'); }
-function renderCooldowns(cw,cc){
-  const MW=5, MC=2; $('#cbw').style.width=Math.min(100,(cw/MW)*100)+'%'; $('#cbc').style.width=Math.min(100,(cc/MC)*100)+'%';
-  $('#cbw-t').textContent=cw; $('#cbc-t').textContent=cc;
-}
-function setGaleSteps(openTrade){
-  const el=$('#gale-steps'); if(!openTrade){el.innerHTML=''; $('#meta-gales').textContent='0/0'; return;}
-  const step=openTrade.step||0, max=openTrade.max_gales||0;
-  let s=''; for(let i=0;i<=max;i++){ s+=`<span class="step ${i<=step?'on':''}" title="G${i}"></span>`; }
-  el.innerHTML=s; $('#meta-gales').textContent=`${step}/${max}`;
-}
-function computeQuality(openTrade, probs){
-  const conf=openTrade?.confluence??0; const maxg=openTrade?.max_gales??0; const p=Number(probs?.rec?.p||0);
-  let score=(p*0.6)+(conf*6)-(maxg*8); score=Math.max(0,Math.min(100,Math.round(score)));
-  const label=score>=70?'Alta':score>=45?'Média':'Baixa'; return {score,label};
-}
-function setQualityBadge(q){ const el=$('#quality-badge'); el.className='q-badge '+(q.score>=70?'good':q.score>=45?'mid':'low'); el.textContent=`Qualidade: ${q.label} • ${q.score}%`; }
-function heatFrom(seq){
-  const el=$('#heat'); el.innerHTML='';
-  const last = (seq||[]).slice(-50);
-  for(const n of last){
-    const i=document.createElement('i');
-    if(n===0){i.className='w';} else if(1<=n&&n<=7){i.className='r';} else{i.className='b';}
-    el.appendChild(i);
-  }
+function ball(n){if(n===0)return`<div class="ball W">0</div>`;const c=(n>=1&&n<=7)?'R':'B';return`<div class="ball ${c}">${n}</div>`;}
+function human(t){return t==='W'?'Branco':(t==='R'?'Vermelho':'Preto');}
+
+function setTargetVisual(tgt){const d=$('#tgt-disc');d.className='disc';if(tgt==='W')d.classList.add('white');else if(tgt==='R')d.classList.add('red');else d.classList.add('black');}
+
+function setGalesMax(tr){const el=$('#gales-max');if(!tr){el.textContent='—';return;}const m=tr.max_gales||0;el.textContent=m===1?'até 1 gale':`até ${m} gales`;}
+
+// ===== phase logic =====
+let _confirmTimer=null;
+function setPhase(tr,probs){
+ const badge=$('#confirm-badge'),ring=$('#ring');
+ if(!tr){badge.style.display='none';if(_confirmTimer){clearTimeout(_confirmTimer);_confirmTimer=null;}ring.className='ring ring--idle';$('#meta-rec').textContent='—';setGalesMax(null);return;}
+ if(tr.phase==='analyzing'){badge.style.display='none';if(_confirmTimer){clearTimeout(_confirmTimer);_confirmTimer=null;}ring.className='ring ring--idle';const pr=probs?.rec?`${Math.round(probs.rec.p*10)/10}%`:'—%';$('#meta-rec').textContent=`Analisando • ${human(probs.rec.tgt)} • ${pr}`;setGalesMax(tr);return;}
+ const g=tr.step||0,maxg=tr.max_gales||0;setGalesMax(tr);
+ if(g===0){badge.style.display='inline-block';ring.className='ring ring--open';$('#meta-rec').textContent=`Sinal ativo • G0 (até ${maxg})`;if(_confirmTimer){clearTimeout(_confirmTimer);} _confirmTimer=setTimeout(()=>{badge.style.display='none';_confirmTimer=null;},5000);}
+ else{badge.style.display='none';if(_confirmTimer){clearTimeout(_confirmTimer);_confirmTimer=null;}ring.className='ring ring--gale';$('#meta-rec').textContent=`Sinal ativo • GALE ${g}/${maxg}`;}
 }
 
-// ===== banner/fases =====
-function setBannerFrom(openTrade, probs){
-  const tgt = openTrade ? openTrade.target : (probs?.rec?.tgt || 'B');
-  const pct = openTrade ? probs?.rec?.p : (probs?.rec?.p || 0);
-  setSwatchFromTarget(tgt);
-  $('#banner-pct').textContent = `${Math.round(pct*10)/10}%`;
-  $('#alvo-name').textContent = human(tgt);
-  $('#meta-conf').textContent = openTrade?.confluence ?? '—';
-  $('#meta-strategy').textContent = openTrade?.strategy || '—';
-}
-function setPhase(openTrade, probs){
-  const badge=$('#confirm-badge'); const ring=$('#ring');
-  if(!openTrade){ badge.style.display='none'; ring.className='ring ring--idle'; $('#meta-rec').textContent='—'; setGaleSteps(null); return; }
-  if(openTrade.phase==='analyzing'){
-    badge.style.display='none'; ring.className='ring ring--idle';
-    const pr = probs?.rec ? `${Math.round(probs.rec.p*10)/10}%` : '—%';
-    $('#meta-rec').textContent=`Analisando • ${human(probs.rec.tgt)} • ${pr}`;
-    setGaleSteps(openTrade);
-  }else{
-    const g=openTrade.step||0, maxg=openTrade.max_gales||0;
-    if(g===0){ badge.style.display='inline-block'; ring.className='ring ring--open'; $('#meta-rec').textContent=`Entrada confirmada • ${human(openTrade.target)} • G0 (até ${maxg})`; }
-    else{ badge.style.display='none'; ring.className='ring ring--gale'; $('#meta-rec').textContent=`Em andamento • ${human(openTrade.target)} • GALE ${g}/${maxg}`; }
-    setGaleSteps(openTrade);
-  }
-}
+function computeQuality(tr,probs){const conf=tr?.confluence??0;const maxg=tr?.max_gales??0;const p=Number(probs?.rec?.p||0);let s=(p*0.6)+(conf*6)-(maxg*8);s=Math.max(0,Math.min(100,Math.round(s)));const label=s>=70?'Alta':s>=45?'Média':'Baixa';return{score:s,label};}
+function setQualityBadge(q){const el=$('#quality-badge');el.className='q-badge '+(q.score>=70?'good':q.score>=45?'mid':'low');el.textContent=`Qualidade: ${q.label} • ${q.score}%`;}
 
-// chips Dom/Gap
-function setExtraChips(j){
-  const seq=j.last_50||[];
-  // dom simples: qual cor teve mais em 20 (ignorando brancos)
-  const last20 = seq.slice(-20).filter(n=>n!==0);
-  const r = last20.filter(n=>1<=n&&n<=7).length;
-  const b = last20.filter(n=>8<=n&&n<=14).length;
-  const dom = r===b?'—':(r>b?'R':'B');
-  $('#chip-dom').textContent = `Dom20: ${dom}`;
-  // gap do branco
-  const lastW = seq.lastIndexOf(0);
-  const gap = lastW===-1 ? seq.length : (seq.length-1)-lastW;
-  $('#chip-gap').textContent = `Gap W: ${gap}`;
-}
-
-// ===== estado inicial =====
-function clearOnFirstLoad(){
-  $('#rolls').innerHTML=''; $('#heat').innerHTML='';
-  $('#confirm-badge').style.display='none'; $('#banner-pct').textContent='—%'; $('#alvo-name').textContent='—'; $('#meta-rec').textContent='—';
-}
-
-// ===== Loop =====
-async function tick(){
-  let t0=performance.now();
-  try{
-    const res=await fetch(API+'/state'); const j=await res.json(); const t1=performance.now();
-    // ping
-    $('#ping-pill').textContent = `ping ${Math.round(t1-t0)}ms`;
-
-    // header
-    $('#state-pill').textContent = `${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`;
-    setActiveModeButton(j.mode);
-
-    // cooldowns
-    renderCooldowns(j.cooldowns.white, j.cooldowns.color);
-
-    // giros + heat
-    const seq=j.last_50||[]; const has=seq.length>0;
-    $('#rolls').innerHTML = has ? seq.slice(-14).map(n=>ball(n)).join('') : '';
-    heatFrom(seq);
-
-    // tempo de rodada
-    const len=seq.length; if(len>lastHistLen){ const now=Date.now(); const dt=now-lastSpinAt; if(dt>1000&&dt<40000){ spinMs = 0.7*spinMs + 0.3*dt; } lastSpinAt=now; lastHistLen=len; }
-
-    // banner
-    if(has){
-      const probs={rec:{tgt:j.probs.rec.tgt,p:j.probs.rec.p}};
-      setBannerFrom(j.open_trade, probs); setPhase(j.open_trade, probs);
-      const q=computeQuality(j.open_trade, probs); setQualityBadge(q);
-      setExtraChips(j);
-    }else{ clearOnFirstLoad(); }
-
-  }catch(e){
-    console.error(e); $('#state-pill').textContent='OFFLINE • —';
-  }finally{
-    setTimeout(tick, 900);
-  }
-}
-clearOnFirstLoad(); tick();
+// ===== heat and chips =====
+function renderCooldowns(cw,cc){const MW=5,MC=2;$('#cbw').style.width=Math.min(100,(cw/MW)*100)+'%';$('#...$('#cbc').style.width=Math.min(100,(cc/MC)*100)+'%';$('#cbw-t').textContent=cw;$('#cbc-t').textContent=cc;}
+function heatFrom(seq){const el=$('#heat');el.innerHTML='';const last=(seq||[]).slice(-50);for(const n of last){const i=document.createElement('i');if(n===0){i.className='w';}else if(1<=n&&n<=7){i.className='r';}else{i.className='b';}el.appendChild(i);}}
+function setExtraChips(j){const seq=j.last_50||[];const last20=seq.slice(-20).filter(n=>n!==0);const r=last20.filter(n=>1<=n&&n<=7).length;const b=last20.filter(n=>8<=n&&n<=14).length;const dom=r===b?'—':(r>b?'R':'B');$('#chip-dom').textContent=`Dom20: ${dom}`;const lastW=seq.lastIndexOf(0);const gap=lastW===-1?seq.length:(seq.length-1)-lastW;$('#chip-gap').textContent=`Gap W: ${gap}`;}
+function setBannerFrom(tr,probs){const tgt=tr?tr.target:(probs?.rec?.tgt||'B');const pct=tr?probs?.rec?.p:(probs?.rec?.p||0);setTargetVisual(tgt);$('#banner-pct').textContent=`${Math.round(pct*10)/10}%`;$('#alvo-name').textContent=human(tgt);$('#meta-conf').textContent=tr?.confluence??'—';$('#meta-strategy').textContent=tr?.strategy||'—';setGalesMax(tr);}
+function clearOnFirstLoad(){$('#rolls').innerHTML='';$('#heat').innerHTML='';$('#confirm-badge').style.display='none';$('#banner-pct').textContent='—%';$('#alvo-name').textContent='—';$('#meta-rec').textContent='—';}
+async function tick(){let t0=performance.now();try{const res=await fetch(API+'/state');const j=await res.json();const t1=performance.now();$('#ping-pill').textContent=`ping ${Math.round(t1-t0)}ms`;$('#state-pill').textContent=`${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`;setActiveModeButton(j.mode);renderCooldowns(j.cooldowns.white,j.cooldowns.color);const seq=j.last_50||[];const has=seq.length>0;$('#rolls').innerHTML=has?seq.slice(-14).map(n=>ball(n)).join(''):'';heatFrom(seq);const len=seq.length;if(len>lastHistLen){const now=Date.now();const dt=now-lastSpinAt;if(dt>1000&&dt<40000){spinMs=0.7*spinMs+0.3*dt;}lastSpinAt=now;lastHistLen=len;}if(has){const probs={rec:{tgt:j.probs.rec.tgt,p:j.probs.rec.p}};setBannerFrom(j.open_trade,probs);setPhase(j.open_trade,probs);const q=computeQuality(j.open_trade,probs);setQualityBadge(q);setExtraChips(j);}else{clearOnFirstLoad();}}catch(e){console.error(e);$('#state-pill').textContent='OFFLINE • —';}finally{setTimeout(tick,900);}}clearOnFirstLoad();tick();
 </script>
 </body>
 </html>
