@@ -45,7 +45,7 @@
       border:1px solid var(--stroke);border-radius:18px;padding:18px;
       background:linear-gradient(180deg, rgba(159,91,255,.07), rgba(0,0,0,0));
       position:relative;overflow:hidden}
-    .left-col{display:grid;grid-template-rows:auto 1fr;gap:10px}
+    .left-col{display:grid;grid-template-rows:auto auto 1fr;gap:10px}
     #confirm-slot{display:flex;justify-content:center;align-items:center;min-height:30px}
     .confirm-badge{
       padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.25);
@@ -83,6 +83,29 @@
     .dot{width:8px;height:8px;border-radius:999px;display:inline-block}
     .lab{opacity:.95}
     .hide{display:none!important}
+
+    /* -------- Quick Wins -------- */
+    .signal-top{display:flex;gap:10px;align-items:center;justify-content:center}
+    .timer{font-weight:900;padding:4px 10px;border:1px solid var(--stroke);
+      border-radius:999px;background:rgba(21,21,38,.7);min-width:64px;text-align:center}
+    .q-badge{padding:4px 10px;border-radius:999px;border:1px solid var(--stroke);
+      background:rgba(21,21,38,.7);font-weight:800}
+    .q-badge.good{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.35)}
+    .q-badge.mid{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.35)}
+    .q-badge.low{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.35)}
+
+    .gale-ui{margin-top:6px}
+    .gsteps{display:flex;align-items:center;gap:6px}
+    .gsteps .step{width:12px;height:12px;border-radius:3px;border:1px solid var(--stroke);background:#1a1b2d}
+    .gsteps .step.on{background:#f59e0b;border-color:#f59e0b}
+    .gsteps .glabel{margin-left:6px;opacity:.85;font-weight:800}
+
+    .coolbars{display:flex;gap:10px;align-items:center}
+    .cool{display:flex;gap:6px;align-items:center}
+    .cool span{font-size:12px;color:var(--muted)}
+    .cool .bar{width:80px;height:8px;border-radius:999px;background:#1a1b2d;border:1px solid var(--stroke);overflow:hidden}
+    .cool .bar i{display:block;height:100%;background:#7aa5ff}
+    .cool b{font-size:12px;color:var(--muted)}
   </style>
 </head>
 <body>
@@ -93,11 +116,11 @@
         <div class="kpi">
           <span class="chip" id="state-pill">OFFLINE</span>
           <div class="seg">
-            <button type="button" class="active" id="mode-cores">CORES</button>
-            <button type="button" id="mode-branco">BRANCO</button>
+            <button type="button" class="active" id="mode-cores" title="Modo CORES">CORES</button>
+            <button type="button" id="mode-branco" title="Modo BRANCO">BRANCO</button>
           </div>
-          <button type="button" class="btn" id="btn-start">Iniciar</button>
-          <button type="button" class="btn ghost" id="btn-stop">Parar</button>
+          <button type="button" class="btn" id="btn-start" title="Iniciar o bot">Iniciar</button>
+          <button type="button" class="btn ghost" id="btn-stop" title="Parar o bot">Parar</button>
         </div>
       </div>
     </div>
@@ -106,7 +129,8 @@
       <div class="panel">
         <div class="title">
           <strong>Motor IA — Próxima Entrada</strong>
-          <span class="muted" id="cooldowns">—</span>
+          <!-- cooldown visual -->
+          <div id="cool-bars" class="coolbars" title="Cooldowns ativos"></div>
         </div>
 
         <div id="banner" class="neural-banner">
@@ -114,21 +138,30 @@
             <div id="confirm-slot">
               <span class="confirm-badge" id="confirm-badge">ENTRADA CONFIRMADA ✅</span>
             </div>
+
+            <!-- qualidade + timer -->
+            <div class="signal-top">
+              <span id="quality-badge" class="q-badge" title="Qualidade estimada do sinal">Qualidade —</span>
+              <span id="round-timer" class="timer" title="Tempo para o próximo giro">--:--</span>
+            </div>
+
             <div class="brain">
               <div id="ring" class="ring ring--idle"></div>
               <div class="brain-core">
-                <div class="swatch" id="tgt-swatch"></div>
+                <div class="swatch" id="tgt-swatch" aria-label="cor alvo"></div>
                 <div class="pct" id="banner-pct">—%</div>
               </div>
             </div>
           </div>
 
           <div class="meta">
-            <div class="meta-row"><span class="tag">Alvo</span><b id="meta-alvo">—</b></div>
-            <div class="meta-row"><span class="tag">Estratégia</span><b id="meta-strategy">—</b></div>
-            <div class="meta-row"><span class="tag">Confluência</span><b id="meta-conf">—</b></div>
-            <div class="meta-row"><span class="tag">Gales</span><b id="meta-gales">0/0</b></div>
-            <div class="meta-row"><span class="tag">Status</span><b id="meta-rec">—</b></div>
+            <div class="meta-row"><span class="tag" title="Cor pretendida">Alvo</span><b id="meta-alvo">—</b></div>
+            <div class="meta-row"><span class="tag" title="Estratégia representante">Estratégia</span><b id="meta-strategy">—</b></div>
+            <div class="meta-row"><span class="tag" title="Total de checks que votaram a favor">Confluência</span><b id="meta-conf">—</b></div>
+            <div class="meta-row"><span class="tag" title="Gales usados / permitidos">Gales</span><b id="meta-gales">0/0</b></div>
+            <div class="meta-row"><span class="tag" title="Estado do sinal">Status</span><b id="meta-rec">—</b></div>
+            <!-- progresso visual de gale -->
+            <div id="gale-ui" class="gale-ui" title="Progresso de GALE"></div>
           </div>
 
           <div class="live" id="live-badge" style="display:none">LIVE</div>
@@ -142,10 +175,16 @@
       </div>
 
       <div class="panel">
-        <div class="title"><strong>Últimos giros</strong></div>
+        <div class="title">
+          <strong>Últimos giros</strong>
+        </div>
         <div id="rolls" class="scroll"></div>
+
         <div id="mini-history" class="card hide" style="margin-top:14px">
-          <div class="title"><strong>Histórico rápido</strong></div>
+          <div class="title">
+            <strong>Histórico rápido</strong>
+            <span id="hist-counters" class="muted"></span>
+          </div>
           <div id="mini-hits" class="chips"></div>
         </div>
       </div>
@@ -155,6 +194,21 @@
 <script>
 const API = location.origin;
 const $ = s => document.querySelector(s);
+
+// ===== timer & rodada (estimação adaptativa) =====
+let lastHistLen = 0;
+let lastSpinAt = Date.now();
+let spinMs = 12000;           // estimativa inicial (~12s)
+setInterval(updateTimer, 200);
+function updateTimer(){
+  const el = $('#round-timer'); if(!el) return;
+  const now = Date.now();
+  const remain = Math.max(0, lastSpinAt + spinMs - now);
+  const sec = Math.ceil(remain/1000);
+  const mm = Math.floor(sec/60).toString();
+  const ss = (sec%60).toString().padStart(2, '0');
+  el.textContent = `${mm}:${ss}`;
+}
 
 // ===== Controles =====
 function setActiveModeButton(mode){
@@ -168,28 +222,24 @@ function setActiveModeButton(mode){
   }
 }
 
-// Botões
 document.getElementById('mode-cores').addEventListener('click', async () => {
   try{
-    setActiveModeButton('CORES'); // feedback imediato
+    setActiveModeButton('CORES');
     await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'CORES'})});
   }catch(e){ console.error('modo CORES erro:', e); }
 });
-
 document.getElementById('mode-branco').addEventListener('click', async () => {
   try{
-    setActiveModeButton('BRANCO'); // feedback imediato
+    setActiveModeButton('BRANCO');
     await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'BRANCO'})});
   }catch(e){ console.error('modo BRANCO erro:', e); }
 });
-
 document.getElementById('btn-start').addEventListener('click', async () => {
   try{
     $('#state-pill').textContent = 'ONLINE • (sincronizando)';
     await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:true})});
   }catch(e){ console.error('start erro:', e); }
 });
-
 document.getElementById('btn-stop').addEventListener('click', async () => {
   try{
     $('#state-pill').textContent = 'OFFLINE';
@@ -197,7 +247,7 @@ document.getElementById('btn-stop').addEventListener('click', async () => {
   }catch(e){ console.error('stop erro:', e); }
 });
 
-// ===== Helpers =====
+// ===== Helpers visuais =====
 function ball(n){
   if(n===0) return `<div class="ball W">0</div>`;
   const c=(n>=1&&n<=7)?'R':'B';
@@ -212,6 +262,63 @@ function setSwatchFromTarget(tgt){
   if(tgt==='W') sw.classList.add('white');
   else if(tgt==='R') sw.classList.add('red');
   else sw.classList.add('black');
+}
+
+// cooldown visual
+function renderCooldowns(cw, cc){
+  const el = $('#cool-bars'); if(!el) return;
+  const MW = 5, MC = 2; // limites (coincidem com backend)
+  el.innerHTML = `
+    <div class="cool" title="Cooldown do Branco">
+      <span>Branco</span>
+      <div class="bar"><i style="width:${Math.min(100, (cw/MW)*100)}%"></i></div>
+      <b>${cw}</b>
+    </div>
+    <div class="cool" title="Cooldown de Cores">
+      <span>Cores</span>
+      <div class="bar"><i style="width:${Math.min(100, (cc/MC)*100)}%"></i></div>
+      <b>${cc}</b>
+    </div>`;
+}
+
+// qualidade do sinal
+function computeQuality(openTrade, probs){
+  const conf = openTrade?.confluence ?? 0;
+  const maxg = openTrade?.max_gales ?? 0;
+  const p = Number(probs?.rec?.p || 0); // %
+  let score = (p*0.6) + (conf*6) - (maxg*8);
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const label = score>=70 ? 'Alta' : score>=45 ? 'Média' : 'Baixa';
+  return {score, label};
+}
+function setQualityBadge(q){
+  const el = $('#quality-badge'); if(!el) return;
+  el.className = 'q-badge ' + (q.score>=70?'good':q.score>=45?'mid':'low');
+  el.textContent = `Qualidade: ${q.label} • ${q.score}%`;
+}
+
+// progresso de gale
+function setGaleUI(openTrade){
+  const el = $('#gale-ui'); if(!el) return;
+  if(!openTrade){ el.innerHTML=''; return; }
+  const step = openTrade.step || 0;
+  const max  = openTrade.max_gales || 0;
+  let dots = '';
+  for(let i=0;i<=max;i++){
+    dots += `<span class="step ${i<=step?'on':''}" title="G${i}"></span>`;
+  }
+  el.innerHTML = `<div class="gsteps">${dots}<span class="glabel">G${step}/${max}</span></div>`;
+}
+
+// contadores do histórico
+function setHistCounters(rows){
+  let w=0,l=0,g=0;
+  for(const r of rows||[]){
+    if(r.status==='WIN') w++;
+    else if(r.status==='LOSS') l++;
+    else if(r.status==='GALE') g++;
+  }
+  const el = $('#hist-counters'); if(el) el.textContent = `W: ${w} • L: ${l} • G: ${g}`;
 }
 
 // ===== Banner / Fases =====
@@ -328,17 +435,32 @@ async function tick(){
     // header
     $('#state-pill').textContent = `${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`;
     setActiveModeButton(j.mode);
-    $('#cooldowns').textContent  = `cooldown • branco ${j.cooldowns.white}, cores ${j.cooldowns.color}`;
+
+    // cooldowns visuais
+    renderCooldowns(j.cooldowns.white, j.cooldowns.color);
 
     // giros
     const hasHistory = (j.last_50||[]).length > 0;
     $('#rolls').innerHTML = hasHistory ? j.last_50.slice(-14).map(n=>ball(n)).join('') : '';
+
+    // aprender tempo de rodada (EMA)
+    const len = (j.last_50||[]).length;
+    if(len > lastHistLen){
+      const now = Date.now();
+      const dt = now - lastSpinAt;
+      if(dt > 1000 && dt < 40000){ spinMs = 0.7*spinMs + 0.3*dt; }
+      lastSpinAt = now;
+      lastHistLen = len;
+    }
 
     // banner
     if(hasHistory){
       const probs = { rec:{ tgt:j.probs.rec.tgt, p:j.probs.rec.p } };
       setBannerFrom(j.open_trade, probs);
       setPhase(j.open_trade, probs);
+      const q = computeQuality(j.open_trade, probs);
+      setQualityBadge(q);
+      setGaleUI(j.open_trade);
     }else{
       clearOnFirstLoad();
     }
@@ -347,6 +469,7 @@ async function tick(){
     const sigs = j.signals || [];
     computeKPIs(sigs);
     renderMiniHistory(sigs);
+    setHistCounters(sigs);
 
   }catch(e){
     console.error('state fetch error:', e);
