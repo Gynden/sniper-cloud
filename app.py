@@ -9,12 +9,18 @@ CORS(app)
 
 # ========================= Config =========================
 HISTORY_MAX = 600
+
 # Confluência mínima de estratégias para abrir sinal
 CONFLUENCE_MIN_WHITE = 2
 CONFLUENCE_MIN_COLOR = 2
+
 # Critério de risco ao escolher a estratégia "representante" no log:
 # "conservador" => prioriza menor max_gales; "agressivo" => maior max_gales
 SELECAO_RISCO = "conservador"  # "conservador" | "agressivo"
+
+# Avaliar no mesmo giro da abertura?
+# False => avalia no PRÓXIMO giro (padrão de salas). True => avalia NO MESMO giro.
+EVAL_SAME_SPIN = False
 
 # ========================= Estado em memória =========================
 history = deque(maxlen=HISTORY_MAX)      # números 0..14 (0 = branco)
@@ -352,6 +358,16 @@ def format_label(target, step, max_gales, conf=None):
 
 def append_signal_entry(mode, target, step, status="open", came=None,
                         strategy=None, max_gales=0, conf=None):
+    """Adiciona item ao log com diagnóstico de coerência."""
+    came_color = None
+    if isinstance(came, int):
+        came_color = color_code(came)  # 'W'|'R'|'B'
+    mismatch = False
+    if status in ("WIN","LOSS") and came_color and target in ("W","R","B"):
+        # Incoerência: veio a mesma cor do alvo, mas marcou LOSS
+        if came_color == target and status == "LOSS":
+            mismatch = True
+
     signal = {
         "ts": now_hhmmss(),
         "mode": mode,                     # 'BRANCO'|'CORES'
@@ -362,7 +378,9 @@ def append_signal_entry(mode, target, step, status="open", came=None,
         "label": format_label(target, step, max_gales, conf),
         "strategy": strategy,
         "confluence": conf,
-        "came": came
+        "came": came,                     # número que saiu
+        "came_color": came_color,         # 'W'|'R'|'B' ou None
+        "mismatch": mismatch              # True se incoerente
     }
     signals.appendleft(signal)
 
@@ -407,14 +425,19 @@ def try_open_trade_if_needed():
 def process_new_number(n):
     """Chamado a cada número novo e avalia trade aberto."""
     global open_trade, cool_color, cool_white
-    # Tenta abrir caso não haja trade
     if not open_trade:
         try_open_trade_if_needed()
         return
 
-    # só considera números *após* a abertura
-    if open_trade and len(history) <= open_trade["opened_at"]:
-        return
+    # Regra de avaliação (mesmo giro vs próximo giro)
+    if not EVAL_SAME_SPIN:
+        # avalia SOMENTE após a abertura
+        if open_trade and len(history) <= open_trade["opened_at"]:
+            return
+    else:
+        # permite avaliar o giro que abriu
+        if open_trade and len(history) < open_trade["opened_at"]:
+            return
 
     if open_trade["type"] == "white":
         hit = (n == 0)
@@ -488,7 +511,8 @@ def state():
             "white_min": CONFLUENCE_MIN_WHITE,
             "color_min": CONFLUENCE_MIN_COLOR,
             "selecao_risco": SELECAO_RISCO
-        }
+        },
+        "eval_same_spin": EVAL_SAME_SPIN
     }
     return jsonify(out)
 
@@ -505,7 +529,7 @@ def ingest():
 
 @app.route("/control", methods=["POST"])
 def control():
-    global bot_on, mode_selected, open_trade, cool_color, cool_white
+    global bot_on, mode_selected, open_trade, cool_color, cool_white, EVAL_SAME_SPIN
     data = request.get_json(silent=True) or {}
     if "bot_on" in data: bot_on = bool(data["bot_on"])
     if "mode" in data and str(data["mode"]).upper() in ("BRANCO","CORES"):
@@ -528,6 +552,8 @@ def control():
         except: pass
     if "risk" in data and data["risk"] in ("conservador","agressivo"):
         globals()["SELECAO_RISCO"] = data["risk"]
+    if "eval_same_spin" in data:
+        EVAL_SAME_SPIN = bool(data["eval_same_spin"])
 
     return jsonify({
         "ok": True,
@@ -535,7 +561,8 @@ def control():
         "mode": mode_selected,
         "confluence_white": CONFLUENCE_MIN_WHITE,
         "confluence_color": CONFLUENCE_MIN_COLOR,
-        "risk": SELECAO_RISCO
+        "risk": SELECAO_RISCO,
+        "eval_same_spin": EVAL_SAME_SPIN
     })
 
 # ========================= Boot =====================================
