@@ -31,7 +31,10 @@ last_snapshot = []                       # último snapshot para merge sem dupli
 bot_on = False
 mode_selected = "CORES"                  # "BRANCO" ou "CORES"
 
-open_trade = None                        # trade aberto (dict)
+# trade aberto:
+# {'type':'white'|'color','target':'W'|'R'|'B','step':0,'max_gales':int,
+#  'strategy':str,'confluence':int,'opened_at':int,'phase':'analyzing'|'open'}
+open_trade = None
 cool_white = 0
 cool_color = 0
 
@@ -357,14 +360,13 @@ def format_label(target, step, max_gales, conf=None):
         return f"{name} — GALE {step}"
 
 def append_signal_entry(mode, target, step, status="open", came=None,
-                        strategy=None, max_gales=0, conf=None):
-    """Adiciona item ao log com diagnóstico de coerência."""
+                        strategy=None, max_gales=0, conf=None, phase=None):
+    """Adiciona item ao log com diagnóstico de coerência + fase."""
     came_color = None
     if isinstance(came, int):
         came_color = color_code(came)  # 'W'|'R'|'B'
     mismatch = False
     if status in ("WIN","LOSS") and came_color and target in ("W","R","B"):
-        # Incoerência: veio a mesma cor do alvo, mas marcou LOSS
         if came_color == target and status == "LOSS":
             mismatch = True
 
@@ -372,7 +374,8 @@ def append_signal_entry(mode, target, step, status="open", came=None,
         "ts": now_hhmmss(),
         "mode": mode,                     # 'BRANCO'|'CORES'
         "target": target,                 # 'W'|'R'|'B'
-        "status": status,                 # 'open'|'WIN'|'LOSS'|'GALE'
+        "status": status,                 # 'ANALYZING'|'open'|'WIN'|'LOSS'|'GALE'
+        "phase": phase,                   # 'analyzing'|'open'|None
         "gale": step,                     # 0,1,2,3...
         "max_gales": max_gales,           # limite daquela estratégia
         "label": format_label(target, step, max_gales, conf),
@@ -386,13 +389,21 @@ def append_signal_entry(mode, target, step, status="open", came=None,
 
 # ========================= Abertura / Gestão do trade ================
 def try_open_trade_if_needed():
+    """
+    Abre um 'pré-sinal' (phase='analyzing') quando há confluência suficiente.
+    No próximo número, o process_new_number promove para phase='open' e só depois
+    passa a avaliar WIN/GALE/LOSS. Nunca abre cor se estiver no modo BRANCO.
+    """
     global open_trade, cool_color, cool_white
-    if open_trade or not bot_on: return
+    if open_trade or not bot_on:
+        return
     seq = list(history)
-    if not seq: return
+    if not seq:
+        return
 
     if mode_selected == "BRANCO":
-        if cool_white > 0: return
+        if cool_white > 0:
+            return
         rep, conf = select_white_with_confluence(seq)
         if rep:
             open_trade = {
@@ -402,12 +413,17 @@ def try_open_trade_if_needed():
                 "max_gales": rep["max_gales"],
                 "strategy": rep["name"],
                 "confluence": conf,
-                "opened_at": len(seq)
+                "opened_at": len(seq),
+                "phase": "analyzing"
             }
-            append_signal_entry("BRANCO","W",0,status="open",
-                                strategy=rep["name"],max_gales=rep["max_gales"],conf=conf)
-    else:
-        if cool_color > 0: return
+            append_signal_entry("BRANCO","W",0,status="ANALYZING",
+                                strategy=rep["name"],max_gales=rep["max_gales"],conf=conf,phase="analyzing")
+    else:  # modo CORES
+        if cool_color > 0:
+            return
+        # trava extra: se não for CORES, não abre cor
+        if mode_selected != "CORES":
+            return
         rep, tgt, conf = select_color_with_confluence(seq)
         if rep and tgt:
             open_trade = {
@@ -417,26 +433,48 @@ def try_open_trade_if_needed():
                 "max_gales": rep["max_gales"],
                 "strategy": rep["name"],
                 "confluence": conf,
-                "opened_at": len(seq)
+                "opened_at": len(seq),
+                "phase": "analyzing"
             }
-            append_signal_entry("CORES",tgt,0,status="open",
-                                strategy=rep["name"],max_gales=rep["max_gales"],conf=conf)
+            append_signal_entry("CORES",tgt,0,status="ANALYZING",
+                                strategy=rep["name"],max_gales=rep["max_gales"],conf=conf,phase="analyzing")
 
 def process_new_number(n):
-    """Chamado a cada número novo e avalia trade aberto."""
+    """Chamado a cada número novo. Gerencia fases: analyzing -> open -> (win/gale/loss)."""
     global open_trade, cool_color, cool_white
+
+    # Se não tem trade, tenta detectar candidato (ANALYZING)
     if not open_trade:
         try_open_trade_if_needed()
         return
 
-    # Regra de avaliação (mesmo giro vs próximo giro)
+    # Se o modo mudou e o trade é de outro tipo, cancela por segurança
+    if (mode_selected == "BRANCO" and open_trade.get("type") == "color") or \
+       (mode_selected == "CORES"  and open_trade.get("type") == "white"):
+        open_trade = None
+        return
+
+    # --------- Fase 1: promover de ANALYZING para OPEN (sem avaliar resultado) ---------
+    if open_trade.get("phase") == "analyzing":
+        open_trade["phase"] = "open"
+        append_signal_entry(
+            "BRANCO" if open_trade["type"]=="white" else "CORES",
+            open_trade["target"],
+            open_trade["step"],
+            status="open",
+            strategy=open_trade["strategy"],
+            max_gales=open_trade["max_gales"],
+            conf=open_trade.get("confluence"),
+            phase="open"
+        )
+        return
+
+    # --------- Fase 2: já está OPEN -> avaliar giro conforme regra de latência ---------
     if not EVAL_SAME_SPIN:
-        # avalia SOMENTE após a abertura
-        if open_trade and len(history) <= open_trade["opened_at"]:
+        if len(history) <= open_trade["opened_at"]:
             return
     else:
-        # permite avaliar o giro que abriu
-        if open_trade and len(history) < open_trade["opened_at"]:
+        if len(history) < open_trade["opened_at"]:
             return
 
     if open_trade["type"] == "white":
@@ -459,7 +497,6 @@ def process_new_number(n):
                 append_signal_entry("BRANCO","W", open_trade["step"], status="GALE", came=n,
                                     strategy=open_trade["strategy"], max_gales=open_trade["max_gales"],
                                     conf=open_trade.get("confluence"))
-
     else:  # color
         tgt = open_trade["target"]  # 'R' ou 'B'
         came = color_code(n)
@@ -521,7 +558,6 @@ def ingest():
     payload = request.get_json(silent=True) or {}
     snap = payload.get("history") or []
     added = merge_snapshot(snap)
-    # processa apenas os novos itens
     if added:
         for n in snap[-added:]:
             process_new_number(n)
@@ -541,13 +577,13 @@ def control():
     if "confluence_white" in data:
         try:
             val = int(data["confluence_white"])
-            if val >= 1: 
+            if val >= 1:
                 globals()["CONFLUENCE_MIN_WHITE"] = val
         except: pass
     if "confluence_color" in data:
         try:
             val = int(data["confluence_color"])
-            if val >= 1: 
+            if val >= 1:
                 globals()["CONFLUENCE_MIN_COLOR"] = val
         except: pass
     if "risk" in data and data["risk"] in ("conservador","agressivo"):
