@@ -98,6 +98,7 @@
           </div>
           <button class="btn" id="btn-start">Iniciar</button>
           <button class="btn ghost" id="btn-stop">Parar</button>
+          <span class="chip" id="phase-pill" style="display:none">ANALISANDO…</span>
         </div>
       </div>
     </div>
@@ -193,13 +194,43 @@
     function setBars(W,R,B){
       $('#bar-w').style.width = W+'%'; $('#bar-r').style.width = R+'%'; $('#bar-b').style.width = B+'%';
     }
-    function setBanner(prob, openTrade){
-      const name = t => t==='W'?'Branco':(t==='R'?'Vermelho':'Preto');
-      const pct = Math.round(prob.rec.p*10)/10; // já é %, só arredonda
-      $('#banner-tgt').textContent = name(prob.rec.tgt);
-      $('#banner-pct').textContent = `${pct}%`;
-      $('#meta-alvo').textContent = name(prob.rec.tgt);
-      $('#meta-rec').textContent  = `${name(prob.rec.tgt)} • ${pct}%`;
+    function human(t){ return t==='W'?'Branco':(t==='R'?'Vermelho':'Preto'); }
+
+    function setPhase(openTrade, probs){
+      const pill = $('#phase-pill');
+      if(!openTrade){
+        pill.style.display = 'none';
+        return;
+      }
+      pill.style.display = 'inline-block';
+
+      // Mensagem e instrução de GALE
+      if(openTrade.phase === 'analyzing'){
+        pill.textContent = 'ANALISANDO…';
+        // Mostra previsão com base na IA, mas sem "confirmar"
+        $('#meta-rec').textContent = `Aguardando confirmação • ${human(probs.rec.tgt)} • ${Math.round(probs.rec.p*10)/10}%`;
+      }else{
+        // OPEN
+        const gstep = openTrade.step||0;
+        const maxg  = openTrade.max_gales||0;
+        if(gstep===0){
+          pill.textContent = 'ENTRADA CONFIRMADA';
+          $('#meta-rec').textContent = `${human(openTrade.target)} • G0 (até ${maxg} gales)`;
+        }else{
+          pill.textContent = 'EM ANDAMENTO';
+          $('#meta-rec').textContent = `${human(openTrade.target)} — GALE ${gstep} (até ${maxg})`;
+        }
+      }
+    }
+
+    function setBannerFrom(openTrade, probs){
+      // Se houver trade aberto, prioriza o alvo do trade; senão usa a recomendação geral
+      const tgt = openTrade ? openTrade.target : probs.rec.tgt;
+      const pct = openTrade ? (probs.rec && probs.rec.tgt===tgt ? probs.rec.p : probs.rec.p) : probs.rec.p; // pct em %
+      $('#banner-tgt').textContent = human(tgt);
+      $('#banner-pct').textContent = `${Math.round(pct*10)/10}%`;
+      $('#meta-alvo').textContent  = human(tgt);
+
       if(openTrade){
         $('#live-badge').style.display='inline-block';
         $('#meta-strategy').textContent = openTrade.strategy || '—';
@@ -229,10 +260,7 @@
     }
 
     // Mini-histórico
-    function colorFromNumber(n){
-      if(n===0) return 'W';
-      return (n>=1 && n<=7) ? 'R' : 'B';
-    }
+    function colorFromNumber(n){ if(n===0) return 'W'; return (n>=1 && n<=7) ? 'R' : 'B'; }
     function renderMiniHistory(rows){
       const el = $('#mini-hits');
       const last = (rows||[]).slice(0,10);
@@ -264,11 +292,12 @@
       el.innerHTML = dots;
     }
 
-    // Estado inicial (sem dados)
+    // Estado inicial
     function clearOnFirstLoad(){
       $('#rolls').innerHTML = '';
       $('#prob-card').classList.add('hide');
       $('#mini-history').classList.add('hide');
+      $('#phase-pill').style.display='none';
       $('#banner-tgt').textContent = '—';
       $('#banner-pct').textContent = '—%';
       $('#meta-alvo').textContent  = '—';
@@ -290,11 +319,14 @@
         // Últimos giros
         $('#rolls').innerHTML = hasHistory ? (j.last_50||[]).slice(-14).map(n=>ball(n)).join('') : '';
 
-        // Barras + banner só se tiver histórico
+        // Probabilidades (% já vindas do backend)
         if(hasHistory){
           $('#prob-card').classList.remove('hide');
-          setBars(j.probs.W, j.probs.R, j.probs.B); // já em %
-          setBanner({ rec:{ tgt:j.probs.rec.tgt, p:j.probs.rec.p } }, j.open_trade); // <-- FIX escala
+          setBars(j.probs.W, j.probs.R, j.probs.B);
+
+          const probs = { rec: { tgt:j.probs.rec.tgt, p:j.probs.rec.p } }; // p já em %
+          setBannerFrom(j.open_trade, probs);
+          setPhase(j.open_trade, probs);
         }else{
           clearOnFirstLoad();
         }
