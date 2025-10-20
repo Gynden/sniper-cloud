@@ -17,22 +17,20 @@
     html,body{height:100%}
     body{
       margin:0;color:var(--text);font:400 14px/1.55 Inter,system-ui,Arial;
-      letter-spacing:.15px;
       background:
         radial-gradient(1200px 800px at 15% -10%, rgba(159,91,255,.10), transparent 60%),
         radial-gradient(900px 700px at 120% 10%, rgba(0,179,255,.10), transparent 60%),
         var(--bg);
     }
     .wrap{max-width:1280px;margin:22px auto;padding:0 16px}
-    .panel{
-      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+    .panel{background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
       border:1px solid var(--stroke);border-radius:16px;padding:14px;
-      backdrop-filter: blur(8px);box-shadow: var(--shadow);
-    }
+      backdrop-filter: blur(8px);box-shadow: var(--shadow);}
     .title{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px}
     .kpi{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .chip{background:var(--chip);border:1px solid var(--stroke);padding:6px 10px;border-radius:999px;font-weight:800}
-    .btn{background:linear-gradient(180deg,#8b5cf6,#7c3aed);border:0;color:#fff;font-weight:800;padding:10px 14px;border-radius:12px;cursor:pointer;box-shadow:0 6px 14px rgba(139,92,246,.25)}
+    .btn{background:linear-gradient(180deg,#8b5cf6,#7c3aed);border:0;color:#fff;font-weight:800;
+      padding:10px 14px;border-radius:12px;cursor:pointer;box-shadow:0 6px 14px rgba(139,92,246,.25)}
     .btn.ghost{background:transparent;border:1px solid var(--stroke);color:var(--text);font-weight:700;box-shadow:none}
     .seg{display:flex;border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
     .seg button{background:transparent;color:var(--text);padding:8px 12px;border:0;cursor:pointer}
@@ -51,16 +49,14 @@
     .confirm-badge{
       padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.25);
       background:linear-gradient(90deg,#00ffcc,#9f5bff);color:#0b0b13;font-weight:900;
-      letter-spacing:.2px;font-size:12px;display:none;
+      font-size:12px;display:none;
       box-shadow:0 8px 20px rgba(0,255,204,.18)
     }
     .live{position:absolute;right:18px;top:18px;background:var(--ok);color:#06130a;
       padding:4px 10px;border-radius:999px;font-weight:800;font-size:12px;animation:pulse 1.6s infinite}
     @keyframes pulse{0%{opacity:1}50%{opacity:.45}100%{opacity:1}}
-    .brain{
-      width:100%;max-width:300px;aspect-ratio:1/1;margin:auto;border-radius:50%;
-      display:grid;place-items:center;position:relative;
-    }
+    .brain{width:100%;max-width:300px;aspect-ratio:1/1;margin:auto;border-radius:50%;
+      display:grid;place-items:center;position:relative;}
     .ring{position:absolute;inset:8%;border-radius:50%;
       background:conic-gradient(from 90deg, var(--neon), var(--neon2), var(--neon), var(--neon2));
       -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 8px));
@@ -70,24 +66,16 @@
     .ring--idle{opacity:.6}
     .ring--open{filter:drop-shadow(0 0 16px rgba(0,255,204,.35))}
     .ring--gale{background:conic-gradient(from 90deg,#f59e0b,#ef4444,#f59e0b,#ef4444)}
-
     .brain-core{text-align:center;display:grid;place-items:center;padding:8px 10px}
-    .swatch{
-      width:clamp(44px, 6vw, 64px);
-      height:clamp(44px, 6vw, 64px);
-      border-radius:50%;
-      border:2px solid rgba(255,255,255,.22);
-      box-shadow:0 6px 14px rgba(0,0,0,.35), inset 0 0 18px rgba(255,255,255,.06);
-      margin-bottom:8px;
-    }
-    .swatch.red{background:#ff2b46}
-    .swatch.black{background:#0b0f14}
+    .swatch{width:clamp(44px, 6vw, 64px);height:clamp(44px, 6vw, 64px);
+      border-radius:50%;border:2px solid rgba(255,255,255,.22);
+      box-shadow:0 6px 14px rgba(0,0,0,.35), inset 0 0 18px rgba(255,255,255,.06);margin-bottom:8px;}
+    .swatch.red{background:#ff2b46}.swatch.black{background:#0b0f14}
     .swatch.white{background:#fff;border-color:#d9d9d9;box-shadow:0 6px 14px rgba(0,0,0,.25), inset 0 0 10px rgba(0,0,0,.05)}
-
     .brain-core .pct{font-size:clamp(14px,1.8vw,18px);opacity:.92}
     .meta{display:grid;gap:10px}
     .meta-row{display:flex;justify-content:space-between;align-items:center;gap:10px}
-    .tag{display:inline-block;padding:4px 10px;border-radius:999px;border:1px solid var(--stroke);background:var(--chip);font-size:12px}
+    .tag{padding:4px 10px;border-radius:999px;border:1px solid var(--stroke);background:var(--chip);font-size:12px}
     .muted{color:var(--muted)}
     .scroll{display:flex;gap:8px;overflow:auto;padding:6px 2px}
     .ball{min-width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-weight:900;border:1px solid var(--stroke);box-shadow:0 6px 12px rgba(0,0,0,.25)}
@@ -172,79 +160,5 @@
   </div>
 
 <script>
-const API = location.origin;
-const $ = s=>document.querySelector(s);
-
-// Controles
-$('#mode-cores').onclick=async()=>{await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'CORES'})});}
-$('#mode-branco').onclick=async()=>{await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'BRANCO'})});}
-$('#btn-start').onclick=async()=>{await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:true})});}
-$('#btn-stop').onclick=async()=>{await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:false})});}
-
-function ball(n){if(n===0)return`<div class="ball W">0</div>`;const c=(n>=1&&n<=7)?'R':'B';return`<div class="ball ${c}">${n}</div>`;}
-function human(t){return t==='W'?'Branco':t==='R'?'Vermelho':'Preto';}
-
-function setSwatchFromTarget(tgt){
-  const sw=$('#tgt-swatch');if(!sw)return;
-  sw.className='swatch';
-  if(tgt==='W')sw.classList.add('white');
-  else if(tgt==='R')sw.classList.add('red');
-  else sw.classList.add('black');
-}
-
-function setBannerFrom(openTrade,probs){
-  const tgt=openTrade?openTrade.target:probs.rec.tgt;
-  const pct=openTrade?probs.rec.p:probs.rec.p;
-  setSwatchFromTarget(tgt);
-  $('#banner-pct').textContent=`${Math.round(pct*10)/10}%`;
-  $('#meta-alvo').textContent=human(tgt);
-  if(openTrade){
-    $('#live-badge').style.display='inline-block';
-    $('#meta-strategy').textContent=openTrade.strategy||'—';
-    $('#meta-conf').textContent=openTrade.confluence??'—';
-    $('#meta-gales').textContent=`${openTrade.step||0}/${openTrade.max_gales||0}`;
-  }else{
-    $('#live-badge').style.display='none';
-    $('#meta-strategy').textContent='—';
-    $('#meta-conf').textContent='—';
-    $('#meta-gales').textContent='0/0';
-  }
-}
-
-function setPhase(openTrade,probs){
-  const badge=$('#confirm-badge');const ring=$('#ring');
-  if(!openTrade){badge.style.display='none';ring.className='ring ring--idle';$('#meta-rec').textContent='—';return;}
-  if(openTrade.phase==='analyzing'){badge.style.display='none';ring.className='ring ring--idle';
-    $('#meta-rec').textContent=`Analisando • ${human(probs.rec.tgt)} • ${Math.round(probs.rec.p*10)/10}%`;
-  }else{
-    const g=openTrade.step||0,maxg=openTrade.max_gales||0;
-    if(g===0){badge.style.display='inline-block';ring.className='ring ring--open';
-      $('#meta-rec').textContent=`Entrada confirmada • ${human(openTrade.target)} • G0 (até ${maxg})`;
-    }else{badge.style.display='none';ring.className='ring ring--gale';
-      $('#meta-rec').textContent=`Em andamento • ${human(openTrade.target)} • GALE ${g}/${maxg}`;}
-  }
-}
-
-function computeKPIs(rows){
-  let wins=0,loss=0,gales=0,streak=0,cur=0;
-  for(const r of rows||[]){
-    if(r.status==='WIN'){wins++;cur=cur>=0?cur+1:1;}
-    if(r.status==='LOSS'){loss++;cur=cur<=0?cur-1:-1;}
-    if(r.status==='GALE'){gales++;}
-    streak=cur;
-  }
-  const total=wins+loss;
-  $('#k-win').textContent=total?`${Math.round((wins/total)*100)}%`:'—';
-  $('#k-gales').textContent=(rows||[]).length?(gales/Math.max(1,(wins+loss))).toFixed(2):'—';
-  $('#k-streak').textContent=streak>0?`+${streak}`:`${streak}`;
-}
-
-function renderMiniHistory(rows){
-  const el=$('#mini-hits');const last=(rows||[]).slice(0,22);
-  if(!last.length){$('#mini-history').classList.add('hide');el.innerHTML='';return;}
-  $('#mini-history').classList.remove('hide');
-  const color=s=>s==='WIN'?'var(--ok)':s==='LOSS'?'var(--bad)':s==='GALE'?'var(--warn)':(s==='open'||s==='OPEN')?'#7aa5ff':'var(--muted)';
-  const sym=s=>({ANALYZING:'A',open:'O',OPEN:'O',WIN:'W',GALE:'G',LOSS:'L'})[s]||'A';
-  el.innerHTML=last.map(r=>{
-    const c=color(r.status);const t=r.target?`<small style="opacity:.7;margin-left:4px">${r.target}</small>`:'';
-    return `<span class="chip-mini" title="${r.label||r.status
+// (cole aqui o script completo que te enviei na última mensagem)
+</script>
