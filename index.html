@@ -5,103 +5,117 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>SNIPER BLAZE — Neural Trader</title>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
   <style>
     :root{
-      --bg:#0b0b13; --panel:#111122; --card:#151527; --stroke:#23243a;
+      --bg:#0b0b13; --panel:#101021; --glass:#0e0e1a; --stroke:#24243a;
       --text:#eef2ff; --muted:#9aa3b2; --neon:#9f5bff; --neon2:#00b3ff;
       --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --chip:#151536;
+      --shadow:0 10px 30px rgba(0,0,0,.45);
     }
-    *{box-sizing:border-box} html,body{height:100%}
+    *{box-sizing:border-box}
+    html,body{height:100%}
     body{
-      margin:0;color:var(--text);font:400 14px/1.5 Inter,system-ui,Arial;letter-spacing:.15px;
+      margin:0;color:var(--text);font:400 14px/1.55 Inter,system-ui,Arial;letter-spacing:.15px;
       background:
-        radial-gradient(1200px 800px at 20% -10%, rgba(159,91,255,.12), transparent 60%),
+        radial-gradient(1200px 800px at 15% -10%, rgba(159,91,255,.10), transparent 60%),
         radial-gradient(900px 700px at 120% 10%, rgba(0,179,255,.10), transparent 60%),
         var(--bg);
     }
     .wrap{max-width:1280px;margin:22px auto;padding:0 16px}
-    .row{display:grid;gap:16px}
-    .g2{grid-template-columns:1.35fr 1fr}
-    @media (max-width:1024px){.g2{grid-template-columns:1fr}}
-    .panel{background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
-           border:1px solid var(--stroke);border-radius:16px;padding:14px;backdrop-filter:blur(6px)}
+
+    /* Panels & header */
+    .panel{
+      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+      border:1px solid var(--stroke);border-radius:16px;padding:14px;backdrop-filter: blur(8px);
+      box-shadow: var(--shadow);
+    }
     .title{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px}
     .kpi{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .chip{background:var(--chip);border:1px solid var(--stroke);padding:6px 10px;border-radius:999px;font-weight:700}
-    .btn{background:linear-gradient(180deg,#8b5cf6,#7c3aed);border:0;color:#fff;font-weight:800;padding:10px 14px;border-radius:10px;cursor:pointer}
-    .btn.ghost{background:transparent;border:1px solid var(--stroke);color:var(--text);font-weight:700}
-    .seg{display:flex;border:1px solid var(--stroke);border-radius:10px;overflow:hidden}
+    .chip{background:var(--chip);border:1px solid var(--stroke);padding:6px 10px;border-radius:999px;font-weight:800}
+    .btn{background:linear-gradient(180deg,#8b5cf6,#7c3aed);border:0;color:#fff;font-weight:800;padding:10px 14px;border-radius:12px;cursor:pointer;box-shadow:0 6px 14px rgba(139,92,246,.25)}
+    .btn.ghost{background:transparent;border:1px solid var(--stroke);color:var(--text);font-weight:700;box-shadow:none}
+    .seg{display:flex;border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
     .seg button{background:transparent;color:var(--text);padding:8px 12px;border:0;cursor:pointer}
-    .seg button.active{background:var(--neon);color:#0c0c12;font-weight:800}
-    .hide{display:none !important}
+    .seg button.active{background:var(--neon);color:#0b0b13;font-weight:900}
 
-    /* Banner IA refeito */
+    .row{display:grid;gap:16px}
+    .g2{grid-template-columns:1.25fr 1fr}
+    @media (max-width:1024px){.g2{grid-template-columns:1fr}}
+
+    /* HERO banner */
     .neural-banner{
-      display:grid;grid-template-columns:1fr 1.2fr;gap:16px;align-items:center;
-      border:1px solid var(--stroke);border-radius:16px;padding:16px;
-      background:linear-gradient(180deg, rgba(159,91,255,.06), rgba(0,0,0,0));
+      display:grid;grid-template-columns:1fr 1.2fr;gap:18px;align-items:center;
+      border:1px solid var(--stroke);border-radius:18px;padding:18px;
+      background:linear-gradient(180deg, rgba(159,91,255,.07), rgba(0,0,0,0));
       position:relative;overflow:hidden;
     }
-    /* badge de confirmação dentro do banner (onde você marcou em amarelo) */
     .confirm-badge{
-      position:absolute;left:16px;top:16px;
-      padding:6px 12px;border-radius:999px;
-      background:linear-gradient(90deg,#00ffcc,#9f5bff);
-      color:#0b0b13;font-weight:900;letter-spacing:.3px;
-      border:1px solid rgba(255,255,255,.2);
-      box-shadow:0 4px 14px rgba(0,0,0,.35);
-      font-size:12px;display:none;
+      position:absolute; right:calc(50% + 56px); top:18px; transform:translateX(50%);
+      padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.25);
+      background:linear-gradient(90deg,#00ffcc,#9f5bff); color:#0b0b13;font-weight:900;
+      letter-spacing:.2px;font-size:12px; display:none; box-shadow:0 8px 20px rgba(0,255,204,.25);
+      animation:pop .25s ease-out;
     }
-    .live{position:absolute;right:16px;top:16px;background:var(--ok);color:#06130a;padding:4px 10px;border-radius:999px;font-weight:800;font-size:12px;animation:pulse 1.4s infinite}
+    @keyframes pop{from{transform:translateX(50%) scale(.9);opacity:.0}to{transform:translateX(50%) scale(1);opacity:1}}
+    .live{position:absolute;right:18px;top:18px;background:var(--ok);color:#06130a;padding:4px 10px;border-radius:999px;font-weight:800;font-size:12px;animation:pulse 1.6s infinite}
     @keyframes pulse{0%{opacity:1}50%{opacity:.45}100%{opacity:1}}
 
-    /* círculo */
     .brain{
-      width:100%;aspect-ratio:1/1;display:grid;place-items:center;position:relative;border-radius:50%;
+      width:100%;max-width:320px;aspect-ratio:1/1;margin:auto;border-radius:50%;
       background:radial-gradient(closest-side, rgba(159,91,255,.10), transparent 70%);
-      max-width:320px;margin:auto;
+      display:grid;place-items:center;position:relative;
     }
     .ring{position:absolute;inset:8%;border-radius:50%;
       background:conic-gradient(from 90deg, var(--neon), var(--neon2), var(--neon), var(--neon2));
       -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 8px));
               mask:radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 8px));
-      animation:spin 9s linear infinite; filter:drop-shadow(0 0 10px rgba(159,91,255,.35));}
+      animation:spin 9s linear infinite; filter:drop-shadow(0 0 10px rgba(159,91,255,.35));
+    }
     @keyframes spin{to{transform:rotate(360deg)}}
+    .ring--idle{opacity:.55}
+    .ring--open{filter:drop-shadow(0 0 16px rgba(0,255,204,.35))}
+    .ring--gale{background:conic-gradient(from 90deg,#f59e0b,#ef4444,#f59e0b,#ef4444)}
     .brain-core{text-align:center;display:grid;place-items:center;padding:8px 10px}
     .brain-core .tgt{
       font-weight:900;letter-spacing:.2px;
-      /* não estoura mais o círculo */
-      font-size:clamp(16px,2.6vw,22px);
-      line-height:1.1;max-width:85%;word-break:break-word;
+      font-size:clamp(14px, 2.1vw, 20px); /* não estoura */
+      white-space:nowrap;max-width:86%;overflow:hidden;text-overflow:ellipsis;
     }
-    .brain-core .pct{font-size:clamp(14px,2vw,18px);opacity:.9}
+    .brain-core .pct{font-size:clamp(14px,1.9vw,18px);opacity:.92}
 
     .meta{display:grid;gap:10px}
     .meta-row{display:flex;justify-content:space-between;align-items:center;gap:10px}
-    .tag{display:inline-block;padding:3px 10px;border-radius:999px;border:1px solid var(--stroke);background:var(--chip);font-size:12px}
+    .tag{display:inline-block;padding:4px 10px;border-radius:999px;border:1px solid var(--stroke);background:var(--chip);font-size:12px}
     .muted{color:var(--muted)}
-    .bar{height:8px;border-radius:999px;background:#20223a;overflow:hidden;border:1px solid var(--stroke)}
-    .bar>span{display:block;height:100%}
+
+    .bar{height:10px;border-radius:999px;background:#20223a;overflow:hidden;border:1px solid var(--stroke)}
+    .bar>span{display:block;height:100%;transition:width .35s ease}
     .bar.white>span{background:#e5e7eb}
     .bar.red>span{background:#ef4444}
     .bar.black>span{background:#0b0f14}
-    .scroll{display:flex;gap:8px;overflow:auto;padding:6px 2px}
-    .ball{min-width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-weight:800;border:1px solid var(--stroke)}
-    .ball.R{background:#ff2740}.ball.B{background:#0f1117}.ball.W{background:#ffffff;color:#111;border-color:#ddd}
-    .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
-    .k-card{background:var(--card);border:1px solid var(--stroke);border-radius:12px;padding:10px}
-    .k-title{font-size:12px;color:var(--muted)} .k-value{font-size:18px;font-weight:800}
 
-    /* Histórico novo (chips) */
+    .scroll{display:flex;gap:8px;overflow:auto;padding:6px 2px}
+    .ball{min-width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-weight:900;border:1px solid var(--stroke);box-shadow:0 6px 12px rgba(0,0,0,.25)}
+    .ball.R{background:#ff2b46}.ball.B{background:#0f1117}.ball.W{background:#ffffff;color:#111;border-color:#ddd}
+
+    .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+    .k-card{background:var(--glass);border:1px solid var(--stroke);border-radius:14px;padding:12px}
+    .k-title{font-size:12px;color:var(--muted)} .k-value{font-size:20px;font-weight:900}
+
+    .hide{display:none !important}
+
+    /* Timeline chips (histórico) */
     .chips{display:flex;gap:8px;flex-wrap:wrap}
     .chip-mini{
-      border:1px solid var(--stroke);background:var(--card);
-      padding:4px 8px;border-radius:999px;font-weight:800;font-size:12px;
-      display:inline-flex;align-items:center;gap:6px
+      border:1px solid var(--stroke);background:rgba(21,21,38,.7);
+      padding:6px 10px;border-radius:999px;font-weight:800;font-size:12px;
+      display:inline-flex;align-items:center;gap:8px;animation:fadein .25s ease;
     }
-    .dot{width:8px;height:8px;border-radius:999px;display:inline-block}
-    .dot.win{background:var(--ok)} .dot.loss{background:var(--bad)} .dot.gale{background:var(--warn)}
+    @keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+    .dot{width:9px;height:9px;border-radius:999px;display:inline-block}
+    .lab{opacity:.95}
+    .win{color:var(--ok)} .loss{color:var(--bad)} .gale{color:var(--warn)} .open{color:#7aa5ff} .analyzing{color:var(--muted)}
   </style>
 </head>
 <body>
@@ -119,15 +133,14 @@
           </div>
           <button class="btn" id="btn-start">Iniciar</button>
           <button class="btn ghost" id="btn-stop">Parar</button>
-          <!-- ⚠️ tiramos o phase-pill do HEADER -->
         </div>
       </div>
     </div>
 
-    <!-- GRID -->
+    <!-- GRID 2 colunas -->
     <div class="row g2" style="margin-top:14px">
 
-      <!-- COL 1: Banner IA + KPIs -->
+      <!-- COL 1: HERO IA + KPIs -->
       <div class="panel">
         <div class="title">
           <strong>Motor IA — Próxima Entrada</strong>
@@ -135,13 +148,12 @@
         </div>
 
         <div id="banner" class="neural-banner">
-          <!-- Badges dentro do banner (lugar correto) -->
           <div class="confirm-badge" id="confirm-badge">ENTRADA CONFIRMADA ✅</div>
           <div class="live" id="live-badge" style="display:none">LIVE</div>
 
           <!-- CÍRCULO -->
           <div class="brain">
-            <div class="ring"></div>
+            <div id="ring" class="ring ring--idle"></div>
             <div class="brain-core">
               <div class="tgt" id="banner-tgt">—</div>
               <div class="pct" id="banner-pct">—%</div>
@@ -166,7 +178,7 @@
         </div>
       </div>
 
-      <!-- COL 2: Últimos giros + barras + mini-histórico -->
+      <!-- COL 2: Últimos giros + Barras + Histórico -->
       <div class="panel">
         <div class="title"><strong>Últimos giros</strong></div>
         <div id="rolls" class="scroll"></div>
@@ -178,7 +190,7 @@
           <div class="bar black" style="margin-top:8px"><span id="bar-b" style="width:0%"></span></div>
         </div>
 
-        <div id="mini-history" class="card hide" style="margin-top:12px">
+        <div id="mini-history" class="card hide" style="margin-top:14px">
           <div class="title"><strong>Histórico rápido</strong></div>
           <div id="mini-hits" class="chips"></div>
         </div>
@@ -206,30 +218,46 @@
       await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:false})});
     };
 
-    // UI helpers
-    function ball(n){ if(n===0) return `<div class="ball W">0</div>`; const c=(n>=1&&n<=7)?'R':'B'; return `<div class="ball ${c}">${n}</div>`; }
-    function setBars(W,R,B){ $('#bar-w').style.width=W+'%'; $('#bar-r').style.width=R+'%'; $('#bar-b').style.width=B+'%'; }
+    // Helpers
+    function ball(n){
+      if(n===0) return `<div class="ball W">0</div>`;
+      const c=(n>=1 && n<=7)?'R':'B';
+      return `<div class="ball ${c}">${n}</div>`;
+    }
+    function setBars(W,R,B){
+      $('#bar-w').style.width=W+'%'; $('#bar-r').style.width=R+'%'; $('#bar-b').style.width=B+'%';
+    }
     function human(t){ return t==='W'?'Branco':(t==='R'?'Vermelho':'Preto'); }
 
-    // Banner/painel de fase DENTRO do banner
+    // Banner / Fases
     function setPhase(openTrade, probs){
       const badge = $('#confirm-badge');
+      const ring  = $('#ring');
+
       if(!openTrade){
         badge.style.display='none';
-        $('#meta-rec').textContent = '—';
+        ring.classList.remove('ring--open','ring--gale');
+        ring.classList.add('ring--idle');
+        $('#meta-rec').textContent='—';
         return;
       }
 
       if(openTrade.phase === 'analyzing'){
         badge.style.display='none';
+        ring.classList.remove('ring--open','ring--gale');
+        ring.classList.add('ring--idle');
         $('#meta-rec').textContent = `Analisando • ${human(probs.rec.tgt)} • ${Math.round(probs.rec.p*10)/10}%`;
       }else{
-        const g = openTrade.step||0, maxg=openTrade.max_gales||0;
+        const g=openTrade.step||0, maxg=openTrade.max_gales||0;
         if(g===0){
           badge.style.display='inline-block';
+          ring.classList.remove('ring--idle','ring--gale');
+          ring.classList.add('ring--open');
           $('#meta-rec').textContent = `Entrada confirmada • ${human(openTrade.target)} • G0 (até ${maxg})`;
         }else{
           badge.style.display='none';
+          ring.classList.remove('ring--idle','ring--open');
+          ring.classList.add('ring--gale');
           $('#meta-rec').textContent = `Em andamento • ${human(openTrade.target)} • GALE ${g}/${maxg}`;
         }
       }
@@ -270,26 +298,28 @@
       $('#k-streak').textContent= streak>0? `+${streak}` : `${streak}`;
     }
 
-    // Histórico — chips limpos
+    // Histórico (chips/timeline)
     function renderMiniHistory(rows){
       const el = $('#mini-hits');
-      const last = (rows||[]).slice(0,12);
+      const last = (rows||[]).slice(0,18);
       if(!last.length){ $('#mini-history').classList.add('hide'); el.innerHTML=''; return; }
       $('#mini-history').classList.remove('hide');
 
-      const chip = (r)=>{
-        const cls = r.status==='WIN'?'win':(r.status==='LOSS'?'loss':'gale');
-        const label = r.status;
-        return `<span class="chip-mini" title="${r.label || r.status}">
-                  <span class="dot ${cls}"></span>${label}
-                </span>`;
-      };
-      el.innerHTML = last.map(chip).join('');
+      const color = s => s==='WIN'?'var(--ok)':s==='LOSS'?'var(--bad)':s==='GALE'?'var(--warn)': (s==='open' || s==='OPEN') ? '#7aa5ff' : 'var(--muted)';
+      const cls   = s => s==='WIN'?'win':s==='LOSS'?'loss':s==='GALE'?'gale': (s==='open'||s==='OPEN')?'open':'analyzing';
+
+      el.innerHTML = last.map(r=>`
+        <span class="chip-mini ${cls(r.status)}" title="${r.label||r.status}">
+          <span class="dot" style="background:${color(r.status)}"></span>
+          <span class="lab">${(r.status||'').toUpperCase()} ${r.target?('• '+r.target):''}</span>
+        </span>
+      `).join('');
     }
 
     // Estado inicial
     function clearOnFirstLoad(){
-      $('#rolls').innerHTML=''; $('#prob-card').classList.add('hide');
+      $('#rolls').innerHTML = '';
+      $('#prob-card').classList.add('hide');
       $('#mini-history').classList.add('hide');
       $('#confirm-badge').style.display='none';
       $('#banner-tgt').textContent='—'; $('#banner-pct').textContent='—%';
@@ -305,7 +335,7 @@
         $('#state-pill').textContent = `${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`;
         $('#cooldowns').textContent  = `cooldown • branco ${j.cooldowns.white}, cores ${j.cooldowns.color}`;
 
-        const hasHistory = (j.last_50||[]).length>0;
+        const hasHistory = (j.last_50||[]).length > 0;
         $('#rolls').innerHTML = hasHistory ? j.last_50.slice(-14).map(n=>ball(n)).join('') : '';
 
         if(hasHistory){
@@ -318,15 +348,15 @@
           clearOnFirstLoad();
         }
 
-        const sigs = j.signals||[];
+        const sigs = j.signals || [];
         computeKPIs(sigs);
         renderMiniHistory(sigs);
 
       }catch(e){
         console.error(e);
-        $('#state-pill').textContent='OFFLINE';
+        $('#state-pill').textContent = 'OFFLINE';
       }finally{
-        setTimeout(tick,900);
+        setTimeout(tick, 900);
       }
     }
     tick();
