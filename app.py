@@ -1,10 +1,12 @@
+# app.py
 import math, time, json
 from collections import deque
 from datetime import datetime
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 
-app = Flask(__name__)
+# Se o seu index.html estiver na raiz do projeto:
+app = Flask(__name__, static_url_path="", static_folder=".", template_folder=".")
 CORS(app)
 
 # ========================= Config =========================
@@ -65,7 +67,9 @@ def merge_snapshot(snapshot):
     added = 0
     if not last_snapshot:
         last_snapshot = list(snap)
-        for n in snap: history.append(n); added += 1
+        for n in snap:
+            history.append(n)
+            added += 1
         return added
 
     a = snap
@@ -81,7 +85,8 @@ def merge_snapshot(snapshot):
 
     new_tail = chosen[k:]
     for n in new_tail:
-        history.append(n); added += 1
+        history.append(n)
+        added += 1
     last_snapshot = list(chosen)
     return added
 
@@ -128,6 +133,14 @@ def gap_white(seq):
     if not ids: return len(seq)
     return (len(seq)-1) - ids[-1]
 def whites_in_window(seq, k): return sum(1 for v in seq[-k:] if v==0)
+
+# --- cooldown "tick" a cada giro processado ---
+def tick_cooldowns():
+    global cool_white, cool_color
+    if cool_white > 0:
+        cool_white -= 1
+    if cool_color > 0:
+        cool_color -= 1
 
 # ========================= Estratégias — BRANCO ======================
 WHITE_STRATS = [
@@ -387,25 +400,27 @@ def try_open_trade_if_needed():
             append_signal_entry("CORES",tgt,0,status="ANALYZING",
                                 strategy=rep["name"],max_gales=rep["max_gales"],conf=conf,phase="analyzing")
     else:
-        # modo inválido: não abre nada
         return
 
 def process_new_number(n):
     """Gerencia fases: analyzing -> open -> (win/gale/loss) e respeita modo ativo."""
     global open_trade, cool_color, cool_white
 
-    # Se não tem trade, tentar abrir um pré-sinal
+    # 1) faz o "tick" dos cooldowns a cada novo número
+    tick_cooldowns()
+
+    # 2) Se não tem trade, tentar abrir um pré-sinal
     if not open_trade:
         try_open_trade_if_needed()
         return
 
-    # Cancelamento defensivo se o modo mudou
+    # 3) Cancelamento defensivo se o modo mudou
     if (mode_selected == "BRANCO" and open_trade.get("type") == "color") or \
        (mode_selected == "CORES"  and open_trade.get("type") == "white"):
         open_trade = None
         return
 
-    # Fase 1: promover ANALYZING -> OPEN (sem avaliar resultado)
+    # 4) Fase 1: promover ANALYZING -> OPEN (sem avaliar resultado)
     if open_trade.get("phase") == "analyzing":
         open_trade["phase"] = "open"
         append_signal_entry(
@@ -417,7 +432,7 @@ def process_new_number(n):
         )
         return
 
-    # Fase 2: avaliar resultado quando já está OPEN (com latência configurável)
+    # 5) Fase 2: avaliar resultado quando já está OPEN (com latência configurável)
     if not EVAL_SAME_SPIN:
         if len(history) <= open_trade["opened_at"]:  # avalia só após a abertura
             return
@@ -467,7 +482,8 @@ def process_new_number(n):
 # ========================= Rotas HTTP ================================
 @app.route("/")
 def index():
-    return render_template("index.html")
+    # Serve index.html da raiz do projeto
+    return send_file("index.html")
 
 @app.route("/state")
 def state():
@@ -502,8 +518,12 @@ def ingest():
     snap = payload.get("history") or []
     added = merge_snapshot(snap)
     if added:
+        # Processa cada número novo na ordem em que chegou
         for n in snap[-added:]:
             process_new_number(n)
+    else:
+        # Mesmo sem números novos, fazemos um "tick" de cooldown leve
+        tick_cooldowns()
     return jsonify({"ok": True, "added": added, "time": datetime.now().isoformat()})
 
 @app.route("/control", methods=["POST"])
@@ -528,12 +548,14 @@ def control():
         try:
             val = int(data["confluence_white"])
             if val >= 1: globals()["CONFLUENCE_MIN_WHITE"] = val
-        except: pass
+        except:
+            pass
     if "confluence_color" in data:
         try:
             val = int(data["confluence_color"])
             if val >= 1: globals()["CONFLUENCE_MIN_COLOR"] = val
-        except: pass
+        except:
+            pass
     if "risk" in data and data["risk"] in ("conservador","agressivo"):
         globals()["SELECAO_RISCO"] = data["risk"]
     if "eval_same_spin" in data:
