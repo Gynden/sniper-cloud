@@ -3,162 +3,221 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>SNIPER BLAZE PRO — WEB</title>
+  <title>SNIPER BLAZE — Neural Trader</title>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root{
-      --bg:#0b0b13; --panel:#111122; --glass:#15152a; --card:#151527; 
-      --muted:#9aa3b2; --text:#eef2ff; --accent:#7b2cbf; --accent-2:#6ee7b7;
-      --red:#ef4444; --black:#0f1115; --white:#f7f7f7; --stroke:#23243a;
-      --ok:#22c55e; --bad:#ef4444; --chip:#1c1c35; --warn:#f59e0b;
+      --bg:#0b0b13; --panel:#111122; --glass:#15152a; --card:#151527;
+      --muted:#9aa3b2; --text:#eef2ff; --stroke:#23243a;
+      --neon:#9f5bff; --neon2:#00b3ff; --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+      --chip:#151536; --white:#f7f7f7; --black:#0f1117; --red:#ef4444;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
     body{
-      margin:0;background:radial-gradient(1200px 800px at 5% -10%, #18182d 0%, transparent 60%), var(--bg);
-      color:var(--text);font:400 14px/1.45 Inter,system-ui,Arial;letter-spacing:.2px;
+      margin:0;
+      color:var(--text);
+      font:400 14px/1.5 Inter,system-ui,Arial;
+      background:
+        radial-gradient(1200px 800px at 20% -10%, rgba(159,91,255,.12), transparent 60%),
+        radial-gradient(900px 700px at 120% 10%, rgba(0,179,255,.10), transparent 60%),
+        var(--bg);
+      letter-spacing:.15px;
     }
-    .wrap{max-width:1200px;margin:20px auto;padding:0 16px}
-    h1{font-size:18px;margin:0 0 16px 0;letter-spacing:.6px}
+    .wrap{max-width:1280px;margin:22px auto;padding:0 16px}
+    h1{margin:0;font-size:18px;letter-spacing:.6px}
     .row{display:grid;gap:16px}
-    .g2{grid-template-columns:1fr 2fr}
     .g3{grid-template-columns:2fr 1.2fr 1fr}
-    @media (max-width:1024px){.g2,.g3{grid-template-columns:1fr}}
-    .panel{background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01)); border:1px solid var(--stroke); border-radius:14px; padding:14px; backdrop-filter:blur(6px)}
-    .kpi{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .chip{background:var(--chip);border:1px solid var(--stroke); padding:6px 10px;border-radius:999px;font-weight:600}
-    .pill{padding:6px 10px;border-radius:999px;border:1px solid var(--stroke);cursor:pointer;user-select:none}
-    .pill.active{background:var(--accent);border-color:transparent}
-    .btn{background:linear-gradient(180deg,#8b5cf6,#7c3aed); border:0; color:#fff; font-weight:700; padding:10px 14px; border-radius:10px; cursor:pointer}
-    .btn.ghost{background:transparent;border:1px solid var(--stroke);color:var(--text)}
+    @media (max-width:1080px){.g3{grid-template-columns:1fr}}
+    .panel{background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+           border:1px solid var(--stroke);border-radius:16px;padding:14px;backdrop-filter:blur(6px)}
     .title{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px}
-    .bar{height:10px;border-radius:999px;background:#20223a;overflow:hidden;border:1px solid var(--stroke)}
-    .bar>span{display:block;height:100%}
-    .flex{display:flex;gap:10px;align-items:center}
-    .scroll {display:flex; gap:8px; overflow:auto; padding-bottom:6px}
-    .ball{min-width:46px;height:46px;border-radius:10px;display:grid;place-items:center;font-weight:800;border:1px solid var(--stroke)}
-    .ball.R{background:#e11d48}
-    .ball.B{background:#0b0f14}
-    .ball.W{background:#ffffff;color:#111;border-color:#ddd}
-    .card{background:var(--card);border:1px solid var(--stroke);border-radius:14px;padding:14px}
-    .big{display:grid;place-items:center;min-height:150px;border-radius:14px;border:1px dashed var(--stroke);text-align:center;padding:8px}
-    .big.W{background:#f6f6f6;color:#111}
-    .big.R{background:#ff2740}
-    .big.B{background:#0f1117}
-    .big>div{font-size:24px;font-weight:800}
+    .kpi{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .chip{background:var(--chip);border:1px solid var(--stroke);padding:6px 10px;border-radius:999px;font-weight:700}
+    .btn{background:linear-gradient(180deg,#8b5cf6,#7c3aed);border:0;color:#fff;font-weight:800;padding:10px 14px;border-radius:10px;cursor:pointer}
+    .btn.ghost{background:transparent;border:1px solid var(--stroke);color:var(--text);font-weight:700}
+    .seg{display:flex;border:1px solid var(--stroke);border-radius:10px;overflow:hidden}
+    .seg button{background:transparent;color:var(--text);padding:8px 12px;border:0;cursor:pointer}
+    .seg button.active{background:var(--neon);color:#0c0c12;font-weight:800}
+
+    /* Banner IA */
+    .neural-banner{
+      display:grid;grid-template-columns:1.2fr 1fr;gap:14px;align-items:center;
+      border:1px solid var(--stroke);border-radius:16px;padding:16px;background:linear-gradient(180deg, rgba(159,91,255,.06), rgba(0,0,0,0));
+      position:relative; overflow:hidden;
+    }
+    .neural-banner:before{
+      content:"";position:absolute;inset:-2px;pointer-events:none;
+      background: radial-gradient(500px 300px at 20% -40%, rgba(159,91,255,.12), transparent 60%),
+                  radial-gradient(600px 300px at 120% 120%, rgba(0,179,255,.10), transparent 60%);
+      filter: blur(0.2px);
+    }
+    .live{position:absolute;top:10px;right:10px;background:var(--ok);color:#06130a;padding:4px 10px;border-radius:999px;font-weight:800;font-size:12px;animation:pulse 1.4s infinite}
+    @keyframes pulse{0%{opacity:1}50%{opacity:.45}100%{opacity:1}}
+
+    .brain{
+      width:100%;aspect-ratio:1/1;display:grid;place-items:center;position:relative;
+      border-radius:50%;
+      background:radial-gradient(closest-side, rgba(159,91,255,.18), transparent 70%);
+    }
+    .ring{
+      position:absolute;inset:8%;border-radius:50%;
+      background:
+        conic-gradient(from 90deg, var(--neon), var(--neon2), var(--neon), var(--neon2));
+      -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 8px));
+              mask:radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 8px));
+      animation:spin 9s linear infinite;
+      filter:drop-shadow(0 0 10px rgba(159,91,255,.35));
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .brain-core{position:relative;z-index:2;text-align:center}
+    .brain-core .tgt{font-size:28px;font-weight:800;letter-spacing:.5px}
+    .brain-core .pct{font-size:18px;opacity:.9}
+    .grid-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .chip2{background:#0f1020;border:1px solid var(--stroke);padding:8px 10px;border-radius:10px}
+    .chip2 b{font-size:16px}
+
+    .meta{display:grid;gap:10px}
+    .meta-row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .tag{display:inline-block;padding:3px 10px;border-radius:999px;border:1px solid var(--stroke);background:var(--chip);font-size:12px}
     .muted{color:var(--muted)}
+    .bar{height:8px;border-radius:999px;background:#20223a;overflow:hidden;border:1px solid var(--stroke)}
+    .bar>span{display:block;height:100%}
+    .bar.white>span{background:#e5e7eb}
+    .bar.red>span{background:#ef4444}
+    .bar.black>span{background:#0b0f14}
+
+    .scroll{display:flex;gap:8px;overflow:auto;padding:6px 2px}
+    .ball{min-width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-weight:800;border:1px solid var(--stroke)}
+    .ball.R{background:#ff2740}
+    .ball.B{background:#0f1117}
+    .ball.W{background:#ffffff;color:#111;border-color:#ddd}
+
     table{width:100%;border-collapse:collapse}
     th,td{border-bottom:1px solid var(--stroke);padding:10px 6px;text-align:left;vertical-align:top}
-    th{font-size:12px;color:var(--muted);font-weight:600}
-    .ok{color:var(--ok);font-weight:700}
-    .bad{color:var(--bad);font-weight:700}
-    .warn{color:var(--warn);font-weight:700}
-    .hint{font-size:12px;color:var(--muted)}
-    .grid-min{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-    @media (max-width:720px){.grid-min{grid-template-columns:1fr}}
-    input[type=number], select{
-      background:#0e0e1a;color:var(--text);border:1px solid var(--stroke);
-      padding:8px 10px;border-radius:10px;width:100%;
-    }
-    .mini{font-size:12px;opacity:.9}
-    .nowrap{white-space:nowrap}
-    .tag{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid var(--stroke);background:var(--chip);font-size:12px}
+    th{font-size:12px;color:var(--muted)}
+    .ok{color:var(--ok);font-weight:800}
+    .bad{color:var(--bad);font-weight:800}
+    .warn{color:var(--warn);font-weight:800}
+
+    /* KPI strip */
+    .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+    .k-card{background:var(--card);border:1px solid var(--stroke);border-radius:12px;padding:10px}
+    .k-title{font-size:12px;color:var(--muted)}
+    .k-value{font-size:18px;font-weight:800}
   </style>
 </head>
 <body>
   <div class="wrap">
 
-    <!-- Header -->
+    <!-- HEADER -->
     <div class="panel">
       <div class="title">
-        <h1>SNIPER BLAZE PRO — WEB</h1>
+        <h1>SNIPER BLAZE — Neural Trader</h1>
         <div class="kpi">
-          <div class="chip" id="state-pill">OFFLINE</div>
-          <div class="pill active" id="mode-cores">CORES</div>
-          <div class="pill" id="mode-branco">BRANCO</div>
+          <span class="chip" id="state-pill">OFFLINE</span>
+          <div class="seg">
+            <button class="active" id="mode-cores">CORES</button>
+            <button id="mode-branco">BRANCO</button>
+          </div>
           <button class="btn" id="btn-start">Iniciar</button>
           <button class="btn ghost" id="btn-stop">Parar</button>
+          <!-- ajustes rápidos -->
+          <span class="chip" title="mín confluência branco">
+            W: <input id="inp-conf-white" type="number" min="1" value="2" style="width:48px;background:transparent;border:0;color:var(--text);text-align:center">
+          </span>
+          <span class="chip" title="mín confluência cores">
+            C: <input id="inp-conf-color" type="number" min="1" value="2" style="width:48px;background:transparent;border:0;color:var(--text);text-align:center">
+          </span>
+          <span class="chip" title="perfil de risco">
+            Risco:
+            <select id="sel-risk" style="background:transparent;border:0;color:var(--text)">
+              <option value="conservador">Conservador</option>
+              <option value="agressivo">Agressivo</option>
+            </select>
+          </span>
+          <button class="btn ghost" id="btn-save-conf">Aplicar</button>
         </div>
       </div>
     </div>
 
-    <!-- Grid -->
+    <!-- GRID -->
     <div class="row g3" style="margin-top:14px">
 
-      <!-- Esquerda: Controles + Chances + Cor Indicada -->
+      <!-- COL 1: Banner IA + KPIs -->
       <div class="panel">
+        <div class="title"><strong>Motor IA — Próxima Entrada</strong><span class="muted" id="cooldowns">—</span></div>
 
-        <!-- Controles de Confluência -->
-        <div class="card">
-          <div class="title"><strong>Confluência & Risco</strong><span class="hint mini">exige N estratégias batendo ao mesmo tempo</span></div>
-          <div class="grid-min">
-            <div>
-              <div class="hint mini">Mín. confluência — BRANCO</div>
-              <input type="number" id="inp-conf-white" min="1" value="2">
-            </div>
-            <div>
-              <div class="hint mini">Mín. confluência — CORES</div>
-              <input type="number" id="inp-conf-color" min="1" value="2">
-            </div>
-            <div>
-              <div class="hint mini">Seleção de risco</div>
-              <select id="sel-risk">
-                <option value="conservador">Conservador (menor gales)</option>
-                <option value="agressivo">Agressivo (maior gales)</option>
-              </select>
+        <div id="banner" class="neural-banner">
+          <div class="live" id="live-badge" style="display:none">LIVE</div>
+
+          <!-- cérebro IA -->
+          <div class="brain">
+            <div class="ring"></div>
+            <div class="brain-core">
+              <div class="tgt" id="banner-tgt">—</div>
+              <div class="pct" id="banner-pct">—%</div>
+              <div class="grid-mini" style="margin-top:10px">
+                <div class="chip2">⚪ Branco<br><b id="w-val">0%</b></div>
+                <div class="chip2">🔴 Vermelho<br><b id="r-val">0%</b></div>
+                <div class="chip2">⚫ Preto<br><b id="b-val">0%</b></div>
+              </div>
             </div>
           </div>
-          <div class="flex" style="justify-content:flex-end;margin-top:10px;gap:8px">
-            <button class="btn ghost" id="btn-save-conf">Aplicar</button>
+
+          <!-- meta da entrada -->
+          <div class="meta">
+            <div class="meta-row">
+              <span class="tag">Alvo</span>
+              <b id="meta-alvo">—</b>
+            </div>
+            <div class="meta-row">
+              <span class="tag">Estratégia</span>
+              <b id="meta-strategy">—</b>
+            </div>
+            <div class="meta-row">
+              <span class="tag">Confluência</span>
+              <b id="meta-conf">—</b>
+            </div>
+            <div class="meta-row">
+              <span class="tag">Gales</span>
+              <b id="meta-gales">0/0</b>
+            </div>
+            <div class="meta-row">
+              <span class="tag">Recomendação</span>
+              <b id="meta-rec">—</b>
+            </div>
           </div>
         </div>
 
-        <div class="card" style="margin-top:14px">
-          <div class="title"><strong>Chances da rodada</strong></div>
-          <div class="flex" style="justify-content:space-between">
-            <span>⚪ Branco</span><span id="w-val">6.7%</span>
-          </div>
-          <div class="bar"><span id="bar-w" style="width:6.7%;background:#e5e7eb"></span></div>
-
-          <div class="flex" style="justify-content:space-between;margin-top:8px">
-            <span>🔴 Vermelho</span><span id="r-val">46%</span>
-          </div>
-          <div class="bar"><span id="bar-r" style="width:46%;background:#ef4444"></span></div>
-
-          <div class="flex" style="justify-content:space-between;margin-top:8px">
-            <span>⚫ Preto</span><span id="b-val">47%</span>
-          </div>
-          <div class="bar"><span id="bar-b" style="width:47%;background:#111827"></span></div>
+        <!-- KPIs rápidos -->
+        <div class="kpis">
+          <div class="k-card"><div class="k-title">WinRate (sessão)</div><div class="k-value" id="k-win">—</div></div>
+          <div class="k-card"><div class="k-title">Gales médios</div><div class="k-value" id="k-gales">—</div></div>
+          <div class="k-card"><div class="k-title">Sequência atual</div><div class="k-value" id="k-streak">—</div></div>
         </div>
-
-        <div class="card" style="margin-top:14px">
-          <div class="title"><strong>Alvo mais indicado</strong></div>
-          <div id="pick" class="big B">
-            <div>Preto • 50%</div>
-            <div class="hint" id="pick-sub" style="margin-top:6px">—</div>
-          </div>
-          <div class="hint" id="pick-reasons" style="margin-top:8px">—</div>
-        </div>
-
       </div>
 
-      <!-- Centro: Últimos giros -->
+      <!-- COL 2: Últimos giros -->
       <div class="panel">
-        <div class="title">
-          <strong>Últimos giros</strong>
-          <span class="muted" id="cooldowns">—</span>
-        </div>
+        <div class="title"><strong>Últimos giros</strong></div>
         <div id="rolls" class="scroll"></div>
+        <div class="card" style="margin-top:12px">
+          <div class="title"><strong>Chances da rodada (barras)</strong></div>
+          <div class="bar white"><span id="bar-w" style="width:0%"></span></div>
+          <div class="bar red"  style="margin-top:8px"><span id="bar-r" style="width:0%"></span></div>
+          <div class="bar black" style="margin-top:8px"><span id="bar-b" style="width:0%"></span></div>
+        </div>
       </div>
 
-      <!-- Direita: Histórico -->
+      <!-- COL 3: Histórico -->
       <div class="panel">
         <div class="title"><strong>Histórico de Sinais</strong></div>
-        <div class="card" style="max-height:420px;overflow:auto">
+        <div class="card" style="max-height:520px;overflow:auto">
           <table>
             <thead><tr>
-              <th>Hora</th><th>Modo</th><th>Alvo</th><th>Rótulo</th><th>Estrategia</th><th>Conf.</th><th>Max Gales</th><th>Status</th><th>Gale</th><th>Saiu</th>
+              <th>Hora</th><th>Modo</th><th>Alvo</th><th>Rótulo</th><th>Estratégia</th><th>Conf.</th><th>Status</th><th>Gale</th><th>Saiu</th>
             </tr></thead>
             <tbody id="log"></tbody>
           </table>
@@ -166,119 +225,155 @@
       </div>
 
     </div>
-
   </div>
 
   <script>
     const API = location.origin;
-    const el = s => document.querySelector(s);
+    const $ = s => document.querySelector(s);
 
-    // UI events: modo/ligar/desligar
-    el('#mode-cores').onclick = async () => {
-      el('#mode-cores').classList.add('active');
-      el('#mode-branco').classList.remove('active');
+    // ======== Controles ========
+    $('#mode-cores').onclick = async () => {
+      $('#mode-cores').classList.add('active');
+      $('#mode-branco').classList.remove('active');
       await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'CORES'})});
     };
-    el('#mode-branco').onclick = async () => {
-      el('#mode-branco').classList.add('active');
-      el('#mode-cores').classList.remove('active');
+    $('#mode-branco').onclick = async () => {
+      $('#mode-branco').classList.add('active');
+      $('#mode-cores').classList.remove('active');
       await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'BRANCO'})});
     };
-    el('#btn-start').onclick = async () => {
+    $('#btn-start').onclick = async () => {
       await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:true})});
     };
-    el('#btn-stop').onclick = async () => {
+    $('#btn-stop').onclick = async () => {
       await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:false})});
     };
-
-    // aplicar confluência/risco
-    el('#btn-save-conf').onclick = async () => {
-      const cw = parseInt(el('#inp-conf-white').value || '2', 10);
-      const cc = parseInt(el('#inp-conf-color').value || '2', 10);
-      const risk = el('#sel-risk').value;
-      await fetch(API+'/control',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({confluence_white:cw, confluence_color:cc, risk})
-      });
+    $('#btn-save-conf').onclick = async () => {
+      const cw = parseInt($('#inp-conf-white').value||'2',10);
+      const cc = parseInt($('#inp-conf-color').value||'2',10);
+      const risk = $('#sel-risk').value;
+      await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confluence_white:cw,confluence_color:cc,risk})});
     };
 
+    // ======== UI helpers ========
     function ball(n){
       if(n===0) return `<div class="ball W">0</div>`;
       const c = (n>=1 && n<=7) ? 'R' : 'B';
       return `<div class="ball ${c}">${n}</div>`;
     }
-    function setPick(tgt, pct, openTrade){
-      const box = el('#pick');
-      box.className = 'big '+tgt;
-      const name = (tgt==='W'?'Branco':(tgt==='R'?'Vermelho':'Preto'));
-      box.innerHTML = `<div>${name} • ${pct}%</div><div class="hint" id="pick-sub">—</div>`;
-      // Complemento: mostra trade aberto (rótulo/estratégia)
-      if(openTrade){
-        const nm = {W:'Branco',R:'Vermelho',B:'Preto'}[openTrade.target||'B'];
-        const galeTxt = openTrade.step>0 ? ` • GALE ${openTrade.step}` : '';
-        el('#pick-sub').innerHTML = `<span class="tag">${nm}</span> • <span class="tag">${openTrade.strategy||'-'}</span> • máx gales: <b>${openTrade.max_gales||0}</b>${galeTxt}`;
-      }
-    }
     function setBars(W,R,B){
-      el('#w-val').textContent = `${W}%`;
-      el('#r-val').textContent = `${R}%`;
-      el('#b-val').textContent = `${B}%`;
-      el('#bar-w').style.width = W+'%';
-      el('#bar-r').style.width = R+'%';
-      el('#bar-b').style.width = B+'%';
+      $('#w-val').textContent = `${W}%`; $('#r-val').textContent = `${R}%`; $('#b-val').textContent = `${B}%`;
+      $('#bar-w').style.width = W+'%'; $('#bar-r').style.width = R+'%'; $('#bar-b').style.width = B+'%';
+    }
+    function setBanner(prob, openTrade){
+      const name = t => t==='W'?'Branco':(t==='R'?'Vermelho':'Preto');
+      $('#banner-tgt').textContent = name(prob.rec.tgt);
+      $('#banner-pct').textContent = `${Math.round(prob.rec.p*10)/10}%`;
+      $('#meta-alvo').textContent = name(prob.rec.tgt);
+      $('#meta-rec').textContent = `${name(prob.rec.tgt)} • ${Math.round(prob.rec.p*10)/10}%`;
+
+      // Prob chips
+      $('#w-val').textContent = `${Math.round(prob.W*1000)/10}%`;
+      $('#r-val').textContent = `${Math.round(prob.R*1000)/10}%`;
+      $('#b-val').textContent = `${Math.round(prob.B*1000)/10}%`;
+
+      // live + trade info
+      if(openTrade){
+        $('#live-badge').style.display='inline-block';
+        $('#meta-strategy').textContent = openTrade.strategy || '—';
+        $('#meta-conf').textContent = openTrade.confluence ?? '—';
+        $('#meta-gales').textContent = `${openTrade.step||0}/${openTrade.max_gales||0}`;
+      }else{
+        $('#live-badge').style.display='none';
+        $('#meta-strategy').textContent = '—';
+        $('#meta-conf').textContent = '—';
+        $('#meta-gales').textContent = '0/0';
+      }
     }
     function setLog(rows){
       const mapName = v => v==='W'?'⚪':(v==='R'?'🔴':'⚫');
-      el('#log').innerHTML = (rows||[]).map(r=>{
-        const stClass = r.status==='WIN'?'ok':(r.status==='LOSS'?'bad':(r.status==='GALE'?'warn':''));
+      $('#log').innerHTML = (rows||[]).map(r=>{
+        const stClass = r.status==='WIN'?'ok':(r.status==='LOSS'?'bad':(r.status==='GALE'?'warn':'')); 
         return `
-          <tr>
-            <td class="nowrap">${r.ts||'-'}</td>
+          <tr class="${stClass}">
+            <td>${r.ts||'-'}</td>
             <td>${r.mode||'-'}</td>
             <td>${mapName(r.target)}</td>
             <td>${r.label||'-'}</td>
             <td>${r.strategy||'-'}</td>
             <td>${r.confluence ?? '-'}</td>
-            <td>${r.max_gales ?? '-'}</td>
             <td class="${stClass}">${(r.status||'-').toUpperCase()}</td>
             <td>${r.gale ?? '-'}</td>
             <td>${r.came ?? '-'}</td>
-          </tr>
-        `;
+          </tr>`;
       }).join('');
     }
 
+    // KPIs derivadas do log
+    function computeKPIs(rows){
+      let wins=0,loss=0,gales=0,streak=0,cur=0;
+      for(const r of rows||[]){
+        if(r.status==='WIN'){wins++; cur = cur>=0 ? cur+1 : 1;}
+        if(r.status==='LOSS'){loss++; cur = cur<=0 ? cur-1 : -1;}
+        if(r.status==='GALE'){gales += 1;}
+        streak = cur;
+      }
+      const total = wins+loss;
+      $('#k-win').textContent = total? `${Math.round((wins/total)*100)}%` : '—';
+      $('#k-gales').textContent = (rows||[]).length? (gales/Math.max(1,(wins+loss))).toFixed(2) : '—';
+      $('#k-streak').textContent = streak>0? `+${streak}` : `${streak}`;
+    }
+
+    // beep discreto
+    const beep = (freq=740, ms=120) => {
+      try{
+        const a = new (window.AudioContext||window.webkitAudioContext)();
+        const o = a.createOscillator(); const g = a.createGain();
+        o.type='sine'; o.frequency.value=freq; o.connect(g); g.connect(a.destination);
+        g.gain.setValueAtTime(0.001,a.currentTime); g.gain.exponentialRampToValueAtTime(0.2,a.currentTime+0.01);
+        o.start(); g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+ms/1000); o.stop(a.currentTime+ms/1000);
+      }catch(e){}
+    };
+    let lastTopStatus = "";
+
+    // ======== Loop ========
     async function tick(){
       try{
-        const res = await fetch(API+'/state');
-        const j = await res.json();
+        const res = await fetch(API+'/state'); const j = await res.json();
 
         // estado
-        el('#state-pill').textContent = `${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`;
+        $('#state-pill').textContent = `${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`;
+        // roll chips
+        $('#rolls').innerHTML = (j.last_50||[]).slice(-14).map(n=>ball(n)).join('');
+        // probs/barras
+        setBars(j.probs.W, j.probs.R, j.probs.B);
+        // banner
+        setBanner({W:j.probs.W/100,R:j.probs.R/100,B:j.probs.B/100,rec:[j.probs.rec.tgt,j.probs.rec.p/100].reduce((a,b)=>({tgt:a, p:b}))}, j.open_trade); // helper para manter compat.
+        // cooldowns
+        $('#cooldowns').textContent = `cooldown • branco ${j.cooldowns.white}, cores ${j.cooldowns.color}`;
+        // log + KPIs
+        setLog(j.signals || []);
+        computeKPIs(j.signals || []);
 
-        // popular controles de confluência/risco
-        if(j.confluence){
-          el('#inp-conf-white').value = j.confluence.white_min ?? 2;
-          el('#inp-conf-color').value = j.confluence.color_min ?? 2;
-          el('#sel-risk').value = j.confluence.selecao_risco || 'conservador';
+        // beep na transição de GALE/WIN
+        const top = (j.signals||[])[0];
+        const key = top ? `${top.status}-${top.gale}-${top.ts}` : '';
+        if(key && key!==lastTopStatus){
+          if(top.status==='GALE') beep(520,140);
+          if(top.status==='WIN')  beep(880,160);
+          if(top.status==='LOSS') beep(380,180);
+          lastTopStatus = key;
         }
 
-        // roll chips
-        el('#rolls').innerHTML = (j.last_50||[]).slice(-12).map(n=>ball(n)).join('');
-
-        // probs
-        setBars(j.probs.W, j.probs.R, j.probs.B);
-        setPick(j.probs.rec.tgt, j.probs.rec.p, j.open_trade);
-
-        // cooldowns
-        el('#cooldowns').textContent = `cooldown • branco ${j.cooldowns.white}, cores ${j.cooldowns.color}`;
-
-        // log
-        setLog(j.signals || []);
+        // preencher controles de confluência/risco
+        if(j.confluence){
+          $('#inp-conf-white').value = j.confluence.white_min ?? 2;
+          $('#inp-conf-color').value = j.confluence.color_min ?? 2;
+          $('#sel-risk').value = j.confluence.selecao_risco || 'conservador';
+        }
       }catch(e){
         console.error(e);
-        el('#state-pill').textContent = 'OFFLINE';
+        $('#state-pill').textContent = 'OFFLINE';
       }finally{
         setTimeout(tick, 900);
       }
