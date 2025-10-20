@@ -22,7 +22,7 @@
     }
     .wrap{max-width:1280px;margin:22px auto;padding:0 16px}
     .row{display:grid;gap:16px}
-    .g2{grid-template-columns:1.4fr 1fr} /* CHANGES: 2 colunas */
+    .g2{grid-template-columns:1.4fr 1fr}
     @media (max-width:1024px){.g2{grid-template-columns:1fr}}
     .panel{background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
            border:1px solid var(--stroke);border-radius:16px;padding:14px;backdrop-filter:blur(6px)}
@@ -72,7 +72,15 @@
     .k-card{background:var(--card);border:1px solid var(--stroke);border-radius:12px;padding:10px}
     .k-title{font-size:12px;color:var(--muted)} .k-value{font-size:18px;font-weight:800}
     /* util */
-    .hide{display:none !important} /* CHANGES: ocultar se sem dados */
+    .hide{display:none !important}
+
+    /* mini-histórico */
+    .dot{width:12px;height:12px;border-radius:999px;border:1px solid var(--stroke)}
+    .dot.win{background:var(--ok)}
+    .dot.loss{background:var(--bad)}
+    .dot.gale{background:var(--warn)}
+    .dot.ghost{background:#222438}
+    .badge-mismatch{padding:2px 6px;border-radius:6px;background:#441a1a;color:#ffb4b4;border:1px solid #7a2a2a;font-size:12px;margin-left:6px}
   </style>
 </head>
 <body>
@@ -90,7 +98,6 @@
           </div>
           <button class="btn" id="btn-start">Iniciar</button>
           <button class="btn ghost" id="btn-stop">Parar</button>
-          <!-- CHANGES: removidos W/C/Risco/Aplicar -->
         </div>
       </div>
     </div>
@@ -114,7 +121,6 @@
             <div class="brain-core">
               <div class="tgt" id="banner-tgt">—</div>
               <div class="pct" id="banner-pct">—%</div>
-              <!-- CHANGES: chips internos REMOVIDOS -->
             </div>
           </div>
 
@@ -136,21 +142,25 @@
         </div>
       </div>
 
-      <!-- COL 2: Últimos giros + barras -->
+      <!-- COL 2: Últimos giros + barras + mini-histórico -->
       <div class="panel">
         <div class="title"><strong>Últimos giros</strong></div>
         <div id="rolls" class="scroll"></div>
 
-        <!-- CHANGES: barras começam escondidas (hide). Só aparecem após histórico -->
+        <!-- barras começam escondidas -->
         <div id="prob-card" class="card hide" style="margin-top:12px">
           <div class="title"><strong>Chances da rodada (barras)</strong></div>
           <div class="bar white"><span id="bar-w" style="width:0%"></span></div>
           <div class="bar red"  style="margin-top:8px"><span id="bar-r" style="width:0%"></span></div>
           <div class="bar black" style="margin-top:8px"><span id="bar-b" style="width:0%"></span></div>
         </div>
-      </div>
 
-      <!-- CHANGES: coluna direita removida -->
+        <!-- mini-histórico compacto -->
+        <div id="mini-history" class="card hide" style="margin-top:12px">
+          <div class="title"><strong>Histórico rápido</strong></div>
+          <div id="mini-hits" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -185,10 +195,11 @@
     }
     function setBanner(prob, openTrade){
       const name = t => t==='W'?'Branco':(t==='R'?'Vermelho':'Preto');
+      const pct = Math.round(prob.rec.p*10)/10; // já é %, só arredonda
       $('#banner-tgt').textContent = name(prob.rec.tgt);
-      $('#banner-pct').textContent = `${Math.round(prob.rec.p*10)/10}%`;
+      $('#banner-pct').textContent = `${pct}%`;
       $('#meta-alvo').textContent = name(prob.rec.tgt);
-      $('#meta-rec').textContent  = `${name(prob.rec.tgt)} • ${Math.round(prob.rec.p*10)/10}%`;
+      $('#meta-rec').textContent  = `${name(prob.rec.tgt)} • ${pct}%`;
       if(openTrade){
         $('#live-badge').style.display='inline-block';
         $('#meta-strategy').textContent = openTrade.strategy || '—';
@@ -201,6 +212,8 @@
         $('#meta-gales').textContent    = '0/0';
       }
     }
+
+    // KPIs
     function computeKPIs(rows){
       let wins=0,loss=0,gales=0,streak=0,cur=0;
       for(const r of rows||[]){
@@ -215,10 +228,47 @@
       $('#k-streak').textContent= streak>0? `+${streak}` : `${streak}`;
     }
 
+    // Mini-histórico
+    function colorFromNumber(n){
+      if(n===0) return 'W';
+      return (n>=1 && n<=7) ? 'R' : 'B';
+    }
+    function renderMiniHistory(rows){
+      const el = $('#mini-hits');
+      const last = (rows||[]).slice(0,10);
+      if(!last.length){
+        $('#mini-history').classList.add('hide');
+        el.innerHTML = '';
+        return;
+      }
+      $('#mini-history').classList.remove('hide');
+      const dots = last.map(r=>{
+        const cls = r.status==='WIN'?'win':(r.status==='LOSS'?'loss':(r.status==='GALE'?'gale':'ghost'));
+        let mismatch = '';
+        if(typeof r.came === 'number'){
+          const cameColor = colorFromNumber(r.came);
+          if((cameColor==='R' || cameColor==='B') && cameColor===r.target && r.status==='LOSS'){
+            mismatch = '<span class="badge-mismatch">? veio alvo, mas LOSS</span>';
+          }
+          if(cameColor==='W' && r.target==='W' && r.status==='LOSS'){
+            mismatch = '<span class="badge-mismatch">? veio branco, mas LOSS</span>';
+          }
+        }
+        return `<div style="display:flex;align-items:center;gap:6px">
+                  <span class="dot ${cls}"></span>
+                  <span class="muted" style="min-width:56px">${(r.status||'-').toUpperCase()}</span>
+                  <span class="muted">alvo: ${r.target||'-'} • saiu: ${r.came??'-'}</span>
+                  ${mismatch}
+                </div>`;
+      }).join('');
+      el.innerHTML = dots;
+    }
+
     // Estado inicial (sem dados)
     function clearOnFirstLoad(){
-      $('#rolls').innerHTML = '';               // CHANGES: sem info
-      $('#prob-card').classList.add('hide');    // CHANGES: oculto até ter histórico
+      $('#rolls').innerHTML = '';
+      $('#prob-card').classList.add('hide');
+      $('#mini-history').classList.add('hide');
       $('#banner-tgt').textContent = '—';
       $('#banner-pct').textContent = '—%';
       $('#meta-alvo').textContent  = '—';
@@ -240,17 +290,20 @@
         // Últimos giros
         $('#rolls').innerHTML = hasHistory ? (j.last_50||[]).slice(-14).map(n=>ball(n)).join('') : '';
 
-        // Barras só se tiver histórico
+        // Barras + banner só se tiver histórico
         if(hasHistory){
           $('#prob-card').classList.remove('hide');
-          setBars(j.probs.W, j.probs.R, j.probs.B);
-          setBanner({W:j.probs.W/100,R:j.probs.R/100,B:j.probs.B/100,rec:{tgt:j.probs.rec.tgt,p:j.probs.rec.p/100}}, j.open_trade);
+          setBars(j.probs.W, j.probs.R, j.probs.B); // já em %
+          setBanner({ rec:{ tgt:j.probs.rec.tgt, p:j.probs.rec.p } }, j.open_trade); // <-- FIX escala
         }else{
           clearOnFirstLoad();
         }
 
-        // KPIs do log (mesmo sem mostrar tabela, calculamos)
-        computeKPIs(j.signals || []);
+        // KPIs e mini-histórico
+        const sigs = j.signals || [];
+        computeKPIs(sigs);
+        renderMiniHistory(sigs);
+
       }catch(e){
         console.error(e);
         $('#state-pill').textContent = 'OFFLINE';
