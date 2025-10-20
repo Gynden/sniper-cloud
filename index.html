@@ -74,13 +74,8 @@
     /* util */
     .hide{display:none !important}
 
-    /* mini-histórico */
-    .dot{width:12px;height:12px;border-radius:999px;border:1px solid var(--stroke)}
-    .dot.win{background:var(--ok)}
-    .dot.loss{background:var(--bad)}
-    .dot.gale{background:var(--warn)}
-    .dot.ghost{background:#222438}
-    .badge-mismatch{padding:2px 6px;border-radius:6px;background:#441a1a;color:#ffb4b4;border:1px solid #7a2a2a;font-size:12px;margin-left:6px}
+    /* mini-histórico simplificado */
+    .status-pill{font-weight:800}
   </style>
 </head>
 <body>
@@ -148,7 +143,6 @@
         <div class="title"><strong>Últimos giros</strong></div>
         <div id="rolls" class="scroll"></div>
 
-        <!-- barras começam escondidas -->
         <div id="prob-card" class="card hide" style="margin-top:12px">
           <div class="title"><strong>Chances da rodada (barras)</strong></div>
           <div class="bar white"><span id="bar-w" style="width:0%"></span></div>
@@ -156,10 +150,9 @@
           <div class="bar black" style="margin-top:8px"><span id="bar-b" style="width:0%"></span></div>
         </div>
 
-        <!-- mini-histórico compacto -->
         <div id="mini-history" class="card hide" style="margin-top:12px">
           <div class="title"><strong>Histórico rápido</strong></div>
-          <div id="mini-hits" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          <div id="mini-hits" style="display:flex;gap:10px;flex-wrap:wrap"></div>
         </div>
       </div>
     </div>
@@ -196,37 +189,48 @@
     }
     function human(t){ return t==='W'?'Branco':(t==='R'?'Vermelho':'Preto'); }
 
+    // ----- BANNER / PILL DE FASE (com 'ENTRADA CONFIRMADA')
+    function resetPhasePill(){
+      const pill = $('#phase-pill');
+      pill.style.background = 'transparent';
+      pill.style.color = 'var(--text)';
+      pill.style.display = 'none';
+      pill.textContent = 'ANALISANDO…';
+    }
+
     function setPhase(openTrade, probs){
       const pill = $('#phase-pill');
       if(!openTrade){
-        pill.style.display = 'none';
+        resetPhasePill();
         return;
       }
       pill.style.display = 'inline-block';
 
-      // Mensagem e instrução de GALE
       if(openTrade.phase === 'analyzing'){
         pill.textContent = 'ANALISANDO…';
-        // Mostra previsão com base na IA, mas sem "confirmar"
+        pill.style.background = 'transparent';
+        pill.style.color = 'var(--text)';
         $('#meta-rec').textContent = `Aguardando confirmação • ${human(probs.rec.tgt)} • ${Math.round(probs.rec.p*10)/10}%`;
       }else{
-        // OPEN
         const gstep = openTrade.step||0;
         const maxg  = openTrade.max_gales||0;
         if(gstep===0){
-          pill.textContent = 'ENTRADA CONFIRMADA';
+          pill.textContent = 'ENTRADA CONFIRMADA ✅';
+          pill.style.background = 'linear-gradient(90deg, #00ffcc, #9f5bff)';
+          pill.style.color = '#0b0b13';
           $('#meta-rec').textContent = `${human(openTrade.target)} • G0 (até ${maxg} gales)`;
         }else{
-          pill.textContent = 'EM ANDAMENTO';
+          pill.textContent = `EM ANDAMENTO (GALE ${gstep})`;
+          pill.style.background = 'linear-gradient(90deg, #f59e0b, #ef4444)';
+          pill.style.color = '#fff';
           $('#meta-rec').textContent = `${human(openTrade.target)} — GALE ${gstep} (até ${maxg})`;
         }
       }
     }
 
     function setBannerFrom(openTrade, probs){
-      // Se houver trade aberto, prioriza o alvo do trade; senão usa a recomendação geral
       const tgt = openTrade ? openTrade.target : probs.rec.tgt;
-      const pct = openTrade ? (probs.rec && probs.rec.tgt===tgt ? probs.rec.p : probs.rec.p) : probs.rec.p; // pct em %
+      const pct = openTrade ? probs.rec.p : probs.rec.p;
       $('#banner-tgt').textContent = human(tgt);
       $('#banner-pct').textContent = `${Math.round(pct*10)/10}%`;
       $('#meta-alvo').textContent  = human(tgt);
@@ -259,37 +263,26 @@
       $('#k-streak').textContent= streak>0? `+${streak}` : `${streak}`;
     }
 
-    // Mini-histórico
-    function colorFromNumber(n){ if(n===0) return 'W'; return (n>=1 && n<=7) ? 'R' : 'B'; }
+    // ----- HISTÓRICO RÁPIDO SIMPLIFICADO
     function renderMiniHistory(rows){
       const el = $('#mini-hits');
-      const last = (rows||[]).slice(0,10);
+      const last = (rows||[]).slice(0,12);
       if(!last.length){
         $('#mini-history').classList.add('hide');
         el.innerHTML = '';
         return;
       }
       $('#mini-history').classList.remove('hide');
-      const dots = last.map(r=>{
-        const cls = r.status==='WIN'?'win':(r.status==='LOSS'?'loss':(r.status==='GALE'?'gale':'ghost'));
-        let mismatch = '';
-        if(typeof r.came === 'number'){
-          const cameColor = colorFromNumber(r.came);
-          if((cameColor==='R' || cameColor==='B') && cameColor===r.target && r.status==='LOSS'){
-            mismatch = '<span class="badge-mismatch">? veio alvo, mas LOSS</span>';
-          }
-          if(cameColor==='W' && r.target==='W' && r.status==='LOSS'){
-            mismatch = '<span class="badge-mismatch">? veio branco, mas LOSS</span>';
-          }
-        }
-        return `<div style="display:flex;align-items:center;gap:6px">
-                  <span class="dot ${cls}"></span>
-                  <span class="muted" style="min-width:56px">${(r.status||'-').toUpperCase()}</span>
-                  <span class="muted">alvo: ${r.target||'-'} • saiu: ${r.came??'-'}</span>
-                  ${mismatch}
-                </div>`;
-      }).join('');
-      el.innerHTML = dots;
+
+      const dot = (status) => {
+        let color = 'var(--muted)';
+        if(status==='WIN') color = 'var(--ok)';
+        else if(status==='LOSS') color = 'var(--bad)';
+        else if(status==='GALE') color = 'var(--warn)';
+        return `<span class="status-pill" style="color:${color}">${status}</span>`;
+      };
+
+      el.innerHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap">${last.map(r=>dot(r.status)).join(' • ')}</div>`;
     }
 
     // Estado inicial
@@ -297,7 +290,7 @@
       $('#rolls').innerHTML = '';
       $('#prob-card').classList.add('hide');
       $('#mini-history').classList.add('hide');
-      $('#phase-pill').style.display='none';
+      resetPhasePill();
       $('#banner-tgt').textContent = '—';
       $('#banner-pct').textContent = '—%';
       $('#meta-alvo').textContent  = '—';
@@ -310,28 +303,24 @@
       try{
         const res = await fetch(API+'/state'); const j = await res.json();
 
-        // status topo
         $('#state-pill').textContent = `${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`;
         $('#cooldowns').textContent  = `cooldown • branco ${j.cooldowns.white}, cores ${j.cooldowns.color}`;
 
         const hasHistory = (j.last_50||[]).length > 0;
 
-        // Últimos giros
         $('#rolls').innerHTML = hasHistory ? (j.last_50||[]).slice(-14).map(n=>ball(n)).join('') : '';
 
-        // Probabilidades (% já vindas do backend)
         if(hasHistory){
           $('#prob-card').classList.remove('hide');
           setBars(j.probs.W, j.probs.R, j.probs.B);
 
-          const probs = { rec: { tgt:j.probs.rec.tgt, p:j.probs.rec.p } }; // p já em %
+          const probs = { rec: { tgt:j.probs.rec.tgt, p:j.probs.rec.p } };
           setBannerFrom(j.open_trade, probs);
           setPhase(j.open_trade, probs);
         }else{
           clearOnFirstLoad();
         }
 
-        // KPIs e mini-histórico
         const sigs = j.signals || [];
         computeKPIs(sigs);
         renderMiniHistory(sigs);
