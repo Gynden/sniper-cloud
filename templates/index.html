@@ -8,28 +8,22 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root{
-      --bg:#0b0b13; --panel:#111122; --glass:#15152a; --card:#151527;
-      --muted:#9aa3b2; --text:#eef2ff; --stroke:#23243a;
-      --neon:#9f5bff; --neon2:#00b3ff; --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444;
-      --chip:#151536; --white:#f7f7f7; --black:#0f1117; --red:#ef4444;
+      --bg:#0b0b13; --panel:#111122; --card:#151527; --stroke:#23243a;
+      --text:#eef2ff; --muted:#9aa3b2; --neon:#9f5bff; --neon2:#00b3ff;
+      --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --chip:#151536;
     }
-    *{box-sizing:border-box}
-    html,body{height:100%}
+    *{box-sizing:border-box} html,body{height:100%}
     body{
-      margin:0;
-      color:var(--text);
-      font:400 14px/1.5 Inter,system-ui,Arial;
+      margin:0;color:var(--text);font:400 14px/1.5 Inter,system-ui,Arial;letter-spacing:.15px;
       background:
         radial-gradient(1200px 800px at 20% -10%, rgba(159,91,255,.12), transparent 60%),
         radial-gradient(900px 700px at 120% 10%, rgba(0,179,255,.10), transparent 60%),
         var(--bg);
-      letter-spacing:.15px;
     }
     .wrap{max-width:1280px;margin:22px auto;padding:0 16px}
-    h1{margin:0;font-size:18px;letter-spacing:.6px}
     .row{display:grid;gap:16px}
-    .g3{grid-template-columns:2fr 1.2fr 1fr}
-    @media (max-width:1080px){.g3{grid-template-columns:1fr}}
+    .g2{grid-template-columns:1.4fr 1fr} /* CHANGES: 2 colunas */
+    @media (max-width:1024px){.g2{grid-template-columns:1fr}}
     .panel{background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
            border:1px solid var(--stroke);border-radius:16px;padding:14px;backdrop-filter:blur(6px)}
     .title{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px}
@@ -43,41 +37,24 @@
 
     /* Banner IA */
     .neural-banner{
-      display:grid;grid-template-columns:1.2fr 1fr;gap:14px;align-items:center;
-      border:1px solid var(--stroke);border-radius:16px;padding:16px;background:linear-gradient(180deg, rgba(159,91,255,.06), rgba(0,0,0,0));
-      position:relative; overflow:hidden;
-    }
-    .neural-banner:before{
-      content:"";position:absolute;inset:-2px;pointer-events:none;
-      background: radial-gradient(500px 300px at 20% -40%, rgba(159,91,255,.12), transparent 60%),
-                  radial-gradient(600px 300px at 120% 120%, rgba(0,179,255,.10), transparent 60%);
-      filter: blur(0.2px);
+      display:grid;grid-template-columns:1.1fr 1fr;gap:14px;align-items:center;
+      border:1px solid var(--stroke);border-radius:16px;padding:16px;
+      background:linear-gradient(180deg, rgba(159,91,255,.06), rgba(0,0,0,0));
+      position:relative;overflow:hidden;
     }
     .live{position:absolute;top:10px;right:10px;background:var(--ok);color:#06130a;padding:4px 10px;border-radius:999px;font-weight:800;font-size:12px;animation:pulse 1.4s infinite}
     @keyframes pulse{0%{opacity:1}50%{opacity:.45}100%{opacity:1}}
-
-    .brain{
-      width:100%;aspect-ratio:1/1;display:grid;place-items:center;position:relative;
-      border-radius:50%;
-      background:radial-gradient(closest-side, rgba(159,91,255,.18), transparent 70%);
-    }
-    .ring{
-      position:absolute;inset:8%;border-radius:50%;
-      background:
-        conic-gradient(from 90deg, var(--neon), var(--neon2), var(--neon), var(--neon2));
+    .brain{width:100%;aspect-ratio:1/1;display:grid;place-items:center;position:relative;border-radius:50%;
+      background:radial-gradient(closest-side, rgba(159,91,255,.18), transparent 70%);}
+    .ring{position:absolute;inset:8%;border-radius:50%;
+      background:conic-gradient(from 90deg, var(--neon), var(--neon2), var(--neon), var(--neon2));
       -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 8px));
               mask:radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 8px));
-      animation:spin 9s linear infinite;
-      filter:drop-shadow(0 0 10px rgba(159,91,255,.35));
-    }
+      animation:spin 9s linear infinite; filter:drop-shadow(0 0 10px rgba(159,91,255,.35));}
     @keyframes spin{to{transform:rotate(360deg)}}
-    .brain-core{position:relative;z-index:2;text-align:center}
-    .brain-core .tgt{font-size:28px;font-weight:800;letter-spacing:.5px}
+    .brain-core{text-align:center}
+    .brain-core .tgt{font-size:32px;font-weight:800;letter-spacing:.5px}
     .brain-core .pct{font-size:18px;opacity:.9}
-    .grid-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-    .chip2{background:#0f1020;border:1px solid var(--stroke);padding:8px 10px;border-radius:10px}
-    .chip2 b{font-size:16px}
-
     .meta{display:grid;gap:10px}
     .meta-row{display:flex;justify-content:space-between;align-items:center;gap:10px}
     .tag{display:inline-block;padding:3px 10px;border-radius:999px;border:1px solid var(--stroke);background:var(--chip);font-size:12px}
@@ -87,25 +64,15 @@
     .bar.white>span{background:#e5e7eb}
     .bar.red>span{background:#ef4444}
     .bar.black>span{background:#0b0f14}
-
     .scroll{display:flex;gap:8px;overflow:auto;padding:6px 2px}
     .ball{min-width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-weight:800;border:1px solid var(--stroke)}
-    .ball.R{background:#ff2740}
-    .ball.B{background:#0f1117}
-    .ball.W{background:#ffffff;color:#111;border-color:#ddd}
-
-    table{width:100%;border-collapse:collapse}
-    th,td{border-bottom:1px solid var(--stroke);padding:10px 6px;text-align:left;vertical-align:top}
-    th{font-size:12px;color:var(--muted)}
-    .ok{color:var(--ok);font-weight:800}
-    .bad{color:var(--bad);font-weight:800}
-    .warn{color:var(--warn);font-weight:800}
-
-    /* KPI strip */
+    .ball.R{background:#ff2740}.ball.B{background:#0f1117}.ball.W{background:#ffffff;color:#111;border-color:#ddd}
+    /* KPIs */
     .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
     .k-card{background:var(--card);border:1px solid var(--stroke);border-radius:12px;padding:10px}
-    .k-title{font-size:12px;color:var(--muted)}
-    .k-value{font-size:18px;font-weight:800}
+    .k-title{font-size:12px;color:var(--muted)} .k-value{font-size:18px;font-weight:800}
+    /* util */
+    .hide{display:none !important} /* CHANGES: ocultar se sem dados */
   </style>
 </head>
 <body>
@@ -123,31 +90,20 @@
           </div>
           <button class="btn" id="btn-start">Iniciar</button>
           <button class="btn ghost" id="btn-stop">Parar</button>
-          <!-- ajustes rápidos -->
-          <span class="chip" title="mín confluência branco">
-            W: <input id="inp-conf-white" type="number" min="1" value="2" style="width:48px;background:transparent;border:0;color:var(--text);text-align:center">
-          </span>
-          <span class="chip" title="mín confluência cores">
-            C: <input id="inp-conf-color" type="number" min="1" value="2" style="width:48px;background:transparent;border:0;color:var(--text);text-align:center">
-          </span>
-          <span class="chip" title="perfil de risco">
-            Risco:
-            <select id="sel-risk" style="background:transparent;border:0;color:var(--text)">
-              <option value="conservador">Conservador</option>
-              <option value="agressivo">Agressivo</option>
-            </select>
-          </span>
-          <button class="btn ghost" id="btn-save-conf">Aplicar</button>
+          <!-- CHANGES: removidos W/C/Risco/Aplicar -->
         </div>
       </div>
     </div>
 
-    <!-- GRID -->
-    <div class="row g3" style="margin-top:14px">
+    <!-- GRID (2 colunas) -->
+    <div class="row g2" style="margin-top:14px">
 
       <!-- COL 1: Banner IA + KPIs -->
       <div class="panel">
-        <div class="title"><strong>Motor IA — Próxima Entrada</strong><span class="muted" id="cooldowns">—</span></div>
+        <div class="title">
+          <strong>Motor IA — Próxima Entrada</strong>
+          <span class="muted" id="cooldowns">—</span>
+        </div>
 
         <div id="banner" class="neural-banner">
           <div class="live" id="live-badge" style="display:none">LIVE</div>
@@ -158,36 +114,17 @@
             <div class="brain-core">
               <div class="tgt" id="banner-tgt">—</div>
               <div class="pct" id="banner-pct">—%</div>
-              <div class="grid-mini" style="margin-top:10px">
-                <div class="chip2">⚪ Branco<br><b id="w-val">0%</b></div>
-                <div class="chip2">🔴 Vermelho<br><b id="r-val">0%</b></div>
-                <div class="chip2">⚫ Preto<br><b id="b-val">0%</b></div>
-              </div>
+              <!-- CHANGES: chips internos REMOVIDOS -->
             </div>
           </div>
 
           <!-- meta da entrada -->
           <div class="meta">
-            <div class="meta-row">
-              <span class="tag">Alvo</span>
-              <b id="meta-alvo">—</b>
-            </div>
-            <div class="meta-row">
-              <span class="tag">Estratégia</span>
-              <b id="meta-strategy">—</b>
-            </div>
-            <div class="meta-row">
-              <span class="tag">Confluência</span>
-              <b id="meta-conf">—</b>
-            </div>
-            <div class="meta-row">
-              <span class="tag">Gales</span>
-              <b id="meta-gales">0/0</b>
-            </div>
-            <div class="meta-row">
-              <span class="tag">Recomendação</span>
-              <b id="meta-rec">—</b>
-            </div>
+            <div class="meta-row"><span class="tag">Alvo</span><b id="meta-alvo">—</b></div>
+            <div class="meta-row"><span class="tag">Estratégia</span><b id="meta-strategy">—</b></div>
+            <div class="meta-row"><span class="tag">Confluência</span><b id="meta-conf">—</b></div>
+            <div class="meta-row"><span class="tag">Gales</span><b id="meta-gales">0/0</b></div>
+            <div class="meta-row"><span class="tag">Recomendação</span><b id="meta-rec">—</b></div>
           </div>
         </div>
 
@@ -199,11 +136,13 @@
         </div>
       </div>
 
-      <!-- COL 2: Últimos giros -->
+      <!-- COL 2: Últimos giros + barras -->
       <div class="panel">
         <div class="title"><strong>Últimos giros</strong></div>
         <div id="rolls" class="scroll"></div>
-        <div class="card" style="margin-top:12px">
+
+        <!-- CHANGES: barras começam escondidas (hide). Só aparecem após histórico -->
+        <div id="prob-card" class="card hide" style="margin-top:12px">
           <div class="title"><strong>Chances da rodada (barras)</strong></div>
           <div class="bar white"><span id="bar-w" style="width:0%"></span></div>
           <div class="bar red"  style="margin-top:8px"><span id="bar-r" style="width:0%"></span></div>
@@ -211,19 +150,7 @@
         </div>
       </div>
 
-      <!-- COL 3: Histórico -->
-      <div class="panel">
-        <div class="title"><strong>Histórico de Sinais</strong></div>
-        <div class="card" style="max-height:520px;overflow:auto">
-          <table>
-            <thead><tr>
-              <th>Hora</th><th>Modo</th><th>Alvo</th><th>Rótulo</th><th>Estratégia</th><th>Conf.</th><th>Status</th><th>Gale</th><th>Saiu</th>
-            </tr></thead>
-            <tbody id="log"></tbody>
-          </table>
-        </div>
-      </div>
-
+      <!-- CHANGES: coluna direita removida -->
     </div>
   </div>
 
@@ -231,15 +158,13 @@
     const API = location.origin;
     const $ = s => document.querySelector(s);
 
-    // ======== Controles ========
+    // Controles básicos
     $('#mode-cores').onclick = async () => {
-      $('#mode-cores').classList.add('active');
-      $('#mode-branco').classList.remove('active');
+      $('#mode-cores').classList.add('active'); $('#mode-branco').classList.remove('active');
       await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'CORES'})});
     };
     $('#mode-branco').onclick = async () => {
-      $('#mode-branco').classList.add('active');
-      $('#mode-cores').classList.remove('active');
+      $('#mode-branco').classList.add('active'); $('#mode-cores').classList.remove('active');
       await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'BRANCO'})});
     };
     $('#btn-start').onclick = async () => {
@@ -248,21 +173,14 @@
     $('#btn-stop').onclick = async () => {
       await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:false})});
     };
-    $('#btn-save-conf').onclick = async () => {
-      const cw = parseInt($('#inp-conf-white').value||'2',10);
-      const cc = parseInt($('#inp-conf-color').value||'2',10);
-      const risk = $('#sel-risk').value;
-      await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confluence_white:cw,confluence_color:cc,risk})});
-    };
 
-    // ======== UI helpers ========
+    // Helpers UI
     function ball(n){
       if(n===0) return `<div class="ball W">0</div>`;
       const c = (n>=1 && n<=7) ? 'R' : 'B';
       return `<div class="ball ${c}">${n}</div>`;
     }
     function setBars(W,R,B){
-      $('#w-val').textContent = `${W}%`; $('#r-val').textContent = `${R}%`; $('#b-val').textContent = `${B}%`;
       $('#bar-w').style.width = W+'%'; $('#bar-r').style.width = R+'%'; $('#bar-b').style.width = B+'%';
     }
     function setBanner(prob, openTrade){
@@ -270,46 +188,19 @@
       $('#banner-tgt').textContent = name(prob.rec.tgt);
       $('#banner-pct').textContent = `${Math.round(prob.rec.p*10)/10}%`;
       $('#meta-alvo').textContent = name(prob.rec.tgt);
-      $('#meta-rec').textContent = `${name(prob.rec.tgt)} • ${Math.round(prob.rec.p*10)/10}%`;
-
-      // Prob chips
-      $('#w-val').textContent = `${Math.round(prob.W*1000)/10}%`;
-      $('#r-val').textContent = `${Math.round(prob.R*1000)/10}%`;
-      $('#b-val').textContent = `${Math.round(prob.B*1000)/10}%`;
-
-      // live + trade info
+      $('#meta-rec').textContent  = `${name(prob.rec.tgt)} • ${Math.round(prob.rec.p*10)/10}%`;
       if(openTrade){
         $('#live-badge').style.display='inline-block';
         $('#meta-strategy').textContent = openTrade.strategy || '—';
-        $('#meta-conf').textContent = openTrade.confluence ?? '—';
-        $('#meta-gales').textContent = `${openTrade.step||0}/${openTrade.max_gales||0}`;
+        $('#meta-conf').textContent     = openTrade.confluence ?? '—';
+        $('#meta-gales').textContent    = `${openTrade.step||0}/${openTrade.max_gales||0}`;
       }else{
         $('#live-badge').style.display='none';
         $('#meta-strategy').textContent = '—';
-        $('#meta-conf').textContent = '—';
-        $('#meta-gales').textContent = '0/0';
+        $('#meta-conf').textContent     = '—';
+        $('#meta-gales').textContent    = '0/0';
       }
     }
-    function setLog(rows){
-      const mapName = v => v==='W'?'⚪':(v==='R'?'🔴':'⚫');
-      $('#log').innerHTML = (rows||[]).map(r=>{
-        const stClass = r.status==='WIN'?'ok':(r.status==='LOSS'?'bad':(r.status==='GALE'?'warn':'')); 
-        return `
-          <tr class="${stClass}">
-            <td>${r.ts||'-'}</td>
-            <td>${r.mode||'-'}</td>
-            <td>${mapName(r.target)}</td>
-            <td>${r.label||'-'}</td>
-            <td>${r.strategy||'-'}</td>
-            <td>${r.confluence ?? '-'}</td>
-            <td class="${stClass}">${(r.status||'-').toUpperCase()}</td>
-            <td>${r.gale ?? '-'}</td>
-            <td>${r.came ?? '-'}</td>
-          </tr>`;
-      }).join('');
-    }
-
-    // KPIs derivadas do log
     function computeKPIs(rows){
       let wins=0,loss=0,gales=0,streak=0,cur=0;
       for(const r of rows||[]){
@@ -319,58 +210,47 @@
         streak = cur;
       }
       const total = wins+loss;
-      $('#k-win').textContent = total? `${Math.round((wins/total)*100)}%` : '—';
+      $('#k-win').textContent   = total? `${Math.round((wins/total)*100)}%` : '—';
       $('#k-gales').textContent = (rows||[]).length? (gales/Math.max(1,(wins+loss))).toFixed(2) : '—';
-      $('#k-streak').textContent = streak>0? `+${streak}` : `${streak}`;
+      $('#k-streak').textContent= streak>0? `+${streak}` : `${streak}`;
     }
 
-    // beep discreto
-    const beep = (freq=740, ms=120) => {
-      try{
-        const a = new (window.AudioContext||window.webkitAudioContext)();
-        const o = a.createOscillator(); const g = a.createGain();
-        o.type='sine'; o.frequency.value=freq; o.connect(g); g.connect(a.destination);
-        g.gain.setValueAtTime(0.001,a.currentTime); g.gain.exponentialRampToValueAtTime(0.2,a.currentTime+0.01);
-        o.start(); g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+ms/1000); o.stop(a.currentTime+ms/1000);
-      }catch(e){}
-    };
-    let lastTopStatus = "";
+    // Estado inicial (sem dados)
+    function clearOnFirstLoad(){
+      $('#rolls').innerHTML = '';               // CHANGES: sem info
+      $('#prob-card').classList.add('hide');    // CHANGES: oculto até ter histórico
+      $('#banner-tgt').textContent = '—';
+      $('#banner-pct').textContent = '—%';
+      $('#meta-alvo').textContent  = '—';
+      $('#meta-rec').textContent   = '—';
+    }
+    clearOnFirstLoad();
 
-    // ======== Loop ========
+    // Loop
     async function tick(){
       try{
         const res = await fetch(API+'/state'); const j = await res.json();
 
-        // estado
+        // status topo
         $('#state-pill').textContent = `${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`;
-        // roll chips
-        $('#rolls').innerHTML = (j.last_50||[]).slice(-14).map(n=>ball(n)).join('');
-        // probs/barras
-        setBars(j.probs.W, j.probs.R, j.probs.B);
-        // banner
-        setBanner({W:j.probs.W/100,R:j.probs.R/100,B:j.probs.B/100,rec:[j.probs.rec.tgt,j.probs.rec.p/100].reduce((a,b)=>({tgt:a, p:b}))}, j.open_trade); // helper para manter compat.
-        // cooldowns
-        $('#cooldowns').textContent = `cooldown • branco ${j.cooldowns.white}, cores ${j.cooldowns.color}`;
-        // log + KPIs
-        setLog(j.signals || []);
+        $('#cooldowns').textContent  = `cooldown • branco ${j.cooldowns.white}, cores ${j.cooldowns.color}`;
+
+        const hasHistory = (j.last_50||[]).length > 0;
+
+        // Últimos giros
+        $('#rolls').innerHTML = hasHistory ? (j.last_50||[]).slice(-14).map(n=>ball(n)).join('') : '';
+
+        // Barras só se tiver histórico
+        if(hasHistory){
+          $('#prob-card').classList.remove('hide');
+          setBars(j.probs.W, j.probs.R, j.probs.B);
+          setBanner({W:j.probs.W/100,R:j.probs.R/100,B:j.probs.B/100,rec:{tgt:j.probs.rec.tgt,p:j.probs.rec.p/100}}, j.open_trade);
+        }else{
+          clearOnFirstLoad();
+        }
+
+        // KPIs do log (mesmo sem mostrar tabela, calculamos)
         computeKPIs(j.signals || []);
-
-        // beep na transição de GALE/WIN
-        const top = (j.signals||[])[0];
-        const key = top ? `${top.status}-${top.gale}-${top.ts}` : '';
-        if(key && key!==lastTopStatus){
-          if(top.status==='GALE') beep(520,140);
-          if(top.status==='WIN')  beep(880,160);
-          if(top.status==='LOSS') beep(380,180);
-          lastTopStatus = key;
-        }
-
-        // preencher controles de confluência/risco
-        if(j.confluence){
-          $('#inp-conf-white').value = j.confluence.white_min ?? 2;
-          $('#inp-conf-color').value = j.confluence.color_min ?? 2;
-          $('#sel-risk').value = j.confluence.selecao_risco || 'conservador';
-        }
       }catch(e){
         console.error(e);
         $('#state-pill').textContent = 'OFFLINE';
