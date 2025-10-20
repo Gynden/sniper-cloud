@@ -23,14 +23,15 @@
         var(--bg);
     }
     .wrap{max-width:1280px;margin:22px auto;padding:0 16px}
-    .panel{background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+    .panel{
+      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
       border:1px solid var(--stroke);border-radius:16px;padding:14px;
-      backdrop-filter: blur(8px);box-shadow: var(--shadow);}
+      backdrop-filter: blur(8px);box-shadow: var(--shadow);
+    }
     .title{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px}
     .kpi{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .chip{background:var(--chip);border:1px solid var(--stroke);padding:6px 10px;border-radius:999px;font-weight:800}
-    .btn{background:linear-gradient(180deg,#8b5cf6,#7c3aed);border:0;color:#fff;font-weight:800;
-      padding:10px 14px;border-radius:12px;cursor:pointer;box-shadow:0 6px 14px rgba(139,92,246,.25)}
+    .btn{background:linear-gradient(180deg,#8b5cf6,#7c3aed);border:0;color:#fff;font-weight:800;padding:10px 14px;border-radius:12px;cursor:pointer;box-shadow:0 6px 14px rgba(139,92,246,.25)}
     .btn.ghost{background:transparent;border:1px solid var(--stroke);color:var(--text);font-weight:700;box-shadow:none}
     .seg{display:flex;border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
     .seg button{background:transparent;color:var(--text);padding:8px 12px;border:0;cursor:pointer}
@@ -49,14 +50,11 @@
     .confirm-badge{
       padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.25);
       background:linear-gradient(90deg,#00ffcc,#9f5bff);color:#0b0b13;font-weight:900;
-      font-size:12px;display:none;
-      box-shadow:0 8px 20px rgba(0,255,204,.18)
+      font-size:12px;display:none;box-shadow:0 8px 20px rgba(0,255,204,.18)
     }
-    .live{position:absolute;right:18px;top:18px;background:var(--ok);color:#06130a;
-      padding:4px 10px;border-radius:999px;font-weight:800;font-size:12px;animation:pulse 1.6s infinite}
+    .live{position:absolute;right:18px;top:18px;background:var(--ok);color:#06130a;padding:4px 10px;border-radius:999px;font-weight:800;font-size:12px;animation:pulse 1.6s infinite}
     @keyframes pulse{0%{opacity:1}50%{opacity:.45}100%{opacity:1}}
-    .brain{width:100%;max-width:300px;aspect-ratio:1/1;margin:auto;border-radius:50%;
-      display:grid;place-items:center;position:relative;}
+    .brain{width:100%;max-width:300px;aspect-ratio:1/1;margin:auto;border-radius:50%;display:grid;place-items:center;position:relative;}
     .ring{position:absolute;inset:8%;border-radius:50%;
       background:conic-gradient(from 90deg, var(--neon), var(--neon2), var(--neon), var(--neon2));
       -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 8px));
@@ -67,11 +65,8 @@
     .ring--open{filter:drop-shadow(0 0 16px rgba(0,255,204,.35))}
     .ring--gale{background:conic-gradient(from 90deg,#f59e0b,#ef4444,#f59e0b,#ef4444)}
     .brain-core{text-align:center;display:grid;place-items:center;padding:8px 10px}
-    .swatch{width:clamp(44px, 6vw, 64px);height:clamp(44px, 6vw, 64px);
-      border-radius:50%;border:2px solid rgba(255,255,255,.22);
-      box-shadow:0 6px 14px rgba(0,0,0,.35), inset 0 0 18px rgba(255,255,255,.06);margin-bottom:8px;}
-    .swatch.red{background:#ff2b46}.swatch.black{background:#0b0f14}
-    .swatch.white{background:#fff;border-color:#d9d9d9;box-shadow:0 6px 14px rgba(0,0,0,.25), inset 0 0 10px rgba(0,0,0,.05)}
+    .swatch{width:clamp(44px,6vw,64px);height:clamp(44px,6vw,64px);border-radius:50%;border:2px solid rgba(255,255,255,.22);box-shadow:0 6px 14px rgba(0,0,0,.35), inset 0 0 18px rgba(255,255,255,.06);margin-bottom:8px}
+    .swatch.red{background:#ff2b46}.swatch.black{background:#0b0f14}.swatch.white{background:#fff;border-color:#d9d9d9;box-shadow:0 6px 14px rgba(0,0,0,.25), inset 0 0 10px rgba(0,0,0,.05)}
     .brain-core .pct{font-size:clamp(14px,1.8vw,18px);opacity:.92}
     .meta{display:grid;gap:10px}
     .meta-row{display:flex;justify-content:space-between;align-items:center;gap:10px}
@@ -84,9 +79,7 @@
     .k-card{background:var(--glass);border:1px solid var(--stroke);border-radius:14px;padding:12px}
     .k-title{font-size:12px;color:var(--muted)}.k-value{font-size:20px;font-weight:900}
     .chips{display:flex;gap:8px;flex-wrap:wrap}
-    .chip-mini{border:1px solid var(--stroke);background:rgba(21,21,38,.7);
-      padding:4px 8px;border-radius:999px;font-weight:800;font-size:11px;
-      display:inline-flex;align-items:center;gap:6px}
+    .chip-mini{border:1px solid var(--stroke);background:rgba(21,21,38,.7);padding:4px 8px;border-radius:999px;font-weight:800;font-size:11px;display:inline-flex;align-items:center;gap:6px}
     .dot{width:8px;height:8px;border-radius:999px;display:inline-block}
     .lab{opacity:.95}
     .hide{display:none!important}
@@ -100,11 +93,11 @@
         <div class="kpi">
           <span class="chip" id="state-pill">OFFLINE</span>
           <div class="seg">
-            <button class="active" id="mode-cores">CORES</button>
-            <button id="mode-branco">BRANCO</button>
+            <button type="button" class="active" id="mode-cores">CORES</button>
+            <button type="button" id="mode-branco">BRANCO</button>
           </div>
-          <button class="btn" id="btn-start">Iniciar</button>
-          <button class="btn ghost" id="btn-stop">Parar</button>
+          <button type="button" class="btn" id="btn-start">Iniciar</button>
+          <button type="button" class="btn ghost" id="btn-stop">Parar</button>
         </div>
       </div>
     </div>
@@ -160,5 +153,212 @@
   </div>
 
 <script>
-// (cole aqui o script completo que te enviei na última mensagem)
+const API = location.origin;
+const $ = s => document.querySelector(s);
+
+// ===== Controles =====
+function setActiveModeButton(mode){
+  const bCores = $('#mode-cores');
+  const bBranco = $('#mode-branco');
+  if(!bCores || !bBranco) return;
+  if(mode === 'CORES'){
+    bCores.classList.add('active'); bBranco.classList.remove('active');
+  }else{
+    bBranco.classList.add('active'); bCores.classList.remove('active');
+  }
+}
+
+// Botões
+document.getElementById('mode-cores').addEventListener('click', async () => {
+  try{
+    setActiveModeButton('CORES'); // feedback imediato
+    await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'CORES'})});
+  }catch(e){ console.error('modo CORES erro:', e); }
+});
+
+document.getElementById('mode-branco').addEventListener('click', async () => {
+  try{
+    setActiveModeButton('BRANCO'); // feedback imediato
+    await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'BRANCO'})});
+  }catch(e){ console.error('modo BRANCO erro:', e); }
+});
+
+document.getElementById('btn-start').addEventListener('click', async () => {
+  try{
+    $('#state-pill').textContent = 'ONLINE • (sincronizando)';
+    await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:true})});
+  }catch(e){ console.error('start erro:', e); }
+});
+
+document.getElementById('btn-stop').addEventListener('click', async () => {
+  try{
+    $('#state-pill').textContent = 'OFFLINE';
+    await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:false})});
+  }catch(e){ console.error('stop erro:', e); }
+});
+
+// ===== Helpers =====
+function ball(n){
+  if(n===0) return `<div class="ball W">0</div>`;
+  const c=(n>=1&&n<=7)?'R':'B';
+  return `<div class="ball ${c}">${n}</div>`;
+}
+function human(t){ return t==='W'?'Branco':(t==='R'?'Vermelho':'Preto'); }
+
+// swatch no centro do círculo
+function setSwatchFromTarget(tgt){
+  const sw = $('#tgt-swatch'); if(!sw) return;
+  sw.className = 'swatch';
+  if(tgt==='W') sw.classList.add('white');
+  else if(tgt==='R') sw.classList.add('red');
+  else sw.classList.add('black');
+}
+
+// ===== Banner / Fases =====
+function setBannerFrom(openTrade, probs){
+  const tgt = openTrade ? openTrade.target : (probs?.rec?.tgt || 'B');
+  const pct = openTrade ? probs?.rec?.p : (probs?.rec?.p || 0);
+
+  setSwatchFromTarget(tgt);
+  $('#banner-pct').textContent = `${Math.round(pct*10)/10}%`;
+  $('#meta-alvo').textContent  = human(tgt);
+
+  if(openTrade){
+    $('#live-badge').style.display='inline-block';
+    $('#meta-strategy').textContent = openTrade.strategy || '—';
+    $('#meta-conf').textContent     = openTrade.confluence ?? '—';
+    $('#meta-gales').textContent    = `${openTrade.step||0}/${openTrade.max_gales||0}`;
+  }else{
+    $('#live-badge').style.display='none';
+    $('#meta-strategy').textContent = '—';
+    $('#meta-conf').textContent     = '—';
+    $('#meta-gales').textContent    = '0/0';
+  }
+}
+
+function setPhase(openTrade, probs){
+  const badge = $('#confirm-badge');
+  const ring  = $('#ring');
+
+  if(!openTrade){
+    badge.style.display='none';
+    ring.className = 'ring ring--idle';
+    $('#meta-rec').textContent='—';
+    return;
+  }
+
+  if(openTrade.phase === 'analyzing'){
+    badge.style.display='none';
+    ring.className = 'ring ring--idle';
+    const pr = probs?.rec ? `${Math.round(probs.rec.p*10)/10}%` : '—%';
+    $('#meta-rec').textContent = `Analisando • ${human(probs.rec.tgt)} • ${pr}`;
+  }else{
+    const g=openTrade.step||0, maxg=openTrade.max_gales||0;
+    if(g===0){
+      badge.style.display='inline-block';
+      ring.className = 'ring ring--open';
+      $('#meta-rec').textContent = `Entrada confirmada • ${human(openTrade.target)} • G0 (até ${maxg})`;
+    }else{
+      badge.style.display='none';
+      ring.className = 'ring ring--gale';
+      $('#meta-rec').textContent = `Em andamento • ${human(openTrade.target)} • GALE ${g}/${maxg}`;
+    }
+  }
+}
+
+// ===== KPIs =====
+function computeKPIs(rows){
+  let wins=0,loss=0,gales=0,streak=0,cur=0;
+  for(const r of rows||[]){
+    if(r.status==='WIN'){wins++; cur = cur>=0 ? cur+1 : 1;}
+    if(r.status==='LOSS'){loss++; cur = cur<=0 ? cur-1 : -1;}
+    if(r.status==='GALE'){gales += 1;}
+    streak = cur;
+  }
+  const total = wins+loss;
+  $('#k-win').textContent   = total? `${Math.round((wins/total)*100)}%` : '—';
+  $('#k-gales').textContent = (rows||[]).length? (gales/Math.max(1,(wins+loss))).toFixed(2) : '—';
+  $('#k-streak').textContent= streak>0? `+${streak}` : `${streak}`;
+}
+
+// ===== Histórico minimal =====
+function renderMiniHistory(rows){
+  const el = $('#mini-hits');
+  const last = (rows||[]).slice(0,22);
+  if(!last.length){
+    $('#mini-history').classList.add('hide');
+    el.innerHTML = '';
+    return;
+  }
+  $('#mini-history').classList.remove('hide');
+
+  const color = s => s==='WIN'  ? 'var(--ok)'
+                    : s==='LOSS' ? 'var(--bad)'
+                    : s==='GALE' ? 'var(--warn)'
+                    : (s==='open'||s==='OPEN') ? '#7aa5ff' : 'var(--muted)';
+  const sym   = s => ({ANALYZING:'A', open:'O', OPEN:'O', WIN:'W', GALE:'G', LOSS:'L'})[s] || 'A';
+
+  el.innerHTML = last.map(r=>{
+    const c = color(r.status);
+    const t = r.target ? `<small style="opacity:.7;margin-left:4px">${r.target}</small>` : '';
+    const label = (r.label || r.status || '').toString().replace(/"/g,'&quot;');
+    return `<span class="chip-mini" title="${label}">
+              <span class="dot" style="background:${c}"></span>
+              <span class="lab" style="color:${c}">${sym(r.status)}</span>${t}
+            </span>`;
+  }).join('');
+}
+
+// ===== Estado inicial =====
+function clearOnFirstLoad(){
+  $('#rolls').innerHTML = '';
+  $('#mini-history').classList.add('hide');
+  $('#confirm-badge').style.display='none';
+  $('#banner-pct').textContent='—%';
+  $('#meta-alvo').textContent='—';
+  $('#meta-rec').textContent='—';
+}
+
+// ===== Loop =====
+async function tick(){
+  try{
+    const res = await fetch(API+'/state');
+    const j = await res.json();
+
+    // header
+    $('#state-pill').textContent = `${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`;
+    setActiveModeButton(j.mode);
+    $('#cooldowns').textContent  = `cooldown • branco ${j.cooldowns.white}, cores ${j.cooldowns.color}`;
+
+    // giros
+    const hasHistory = (j.last_50||[]).length > 0;
+    $('#rolls').innerHTML = hasHistory ? j.last_50.slice(-14).map(n=>ball(n)).join('') : '';
+
+    // banner
+    if(hasHistory){
+      const probs = { rec:{ tgt:j.probs.rec.tgt, p:j.probs.rec.p } };
+      setBannerFrom(j.open_trade, probs);
+      setPhase(j.open_trade, probs);
+    }else{
+      clearOnFirstLoad();
+    }
+
+    // KPIs + histórico
+    const sigs = j.signals || [];
+    computeKPIs(sigs);
+    renderMiniHistory(sigs);
+
+  }catch(e){
+    console.error('state fetch error:', e);
+    $('#state-pill').textContent = 'OFFLINE';
+  }finally{
+    setTimeout(tick, 900);
+  }
+}
+
+// boot
+clearOnFirstLoad();
+tick();
 </script>
+</body>
+</html>
