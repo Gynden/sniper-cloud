@@ -22,7 +22,7 @@
     }
     .wrap{max-width:1280px;margin:22px auto;padding:0 16px}
     .row{display:grid;gap:16px}
-    .g2{grid-template-columns:1.4fr 1fr}
+    .g2{grid-template-columns:1.35fr 1fr}
     @media (max-width:1024px){.g2{grid-template-columns:1fr}}
     .panel{background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
            border:1px solid var(--stroke);border-radius:16px;padding:14px;backdrop-filter:blur(6px)}
@@ -34,27 +34,49 @@
     .seg{display:flex;border:1px solid var(--stroke);border-radius:10px;overflow:hidden}
     .seg button{background:transparent;color:var(--text);padding:8px 12px;border:0;cursor:pointer}
     .seg button.active{background:var(--neon);color:#0c0c12;font-weight:800}
+    .hide{display:none !important}
 
-    /* Banner IA */
+    /* Banner IA refeito */
     .neural-banner{
-      display:grid;grid-template-columns:1.1fr 1fr;gap:14px;align-items:center;
+      display:grid;grid-template-columns:1fr 1.2fr;gap:16px;align-items:center;
       border:1px solid var(--stroke);border-radius:16px;padding:16px;
       background:linear-gradient(180deg, rgba(159,91,255,.06), rgba(0,0,0,0));
       position:relative;overflow:hidden;
     }
-    .live{position:absolute;top:10px;right:10px;background:var(--ok);color:#06130a;padding:4px 10px;border-radius:999px;font-weight:800;font-size:12px;animation:pulse 1.4s infinite}
+    /* badge de confirmação dentro do banner (onde você marcou em amarelo) */
+    .confirm-badge{
+      position:absolute;left:16px;top:16px;
+      padding:6px 12px;border-radius:999px;
+      background:linear-gradient(90deg,#00ffcc,#9f5bff);
+      color:#0b0b13;font-weight:900;letter-spacing:.3px;
+      border:1px solid rgba(255,255,255,.2);
+      box-shadow:0 4px 14px rgba(0,0,0,.35);
+      font-size:12px;display:none;
+    }
+    .live{position:absolute;right:16px;top:16px;background:var(--ok);color:#06130a;padding:4px 10px;border-radius:999px;font-weight:800;font-size:12px;animation:pulse 1.4s infinite}
     @keyframes pulse{0%{opacity:1}50%{opacity:.45}100%{opacity:1}}
-    .brain{width:100%;aspect-ratio:1/1;display:grid;place-items:center;position:relative;border-radius:50%;
-      background:radial-gradient(closest-side, rgba(159,91,255,.18), transparent 70%);}
+
+    /* círculo */
+    .brain{
+      width:100%;aspect-ratio:1/1;display:grid;place-items:center;position:relative;border-radius:50%;
+      background:radial-gradient(closest-side, rgba(159,91,255,.10), transparent 70%);
+      max-width:320px;margin:auto;
+    }
     .ring{position:absolute;inset:8%;border-radius:50%;
       background:conic-gradient(from 90deg, var(--neon), var(--neon2), var(--neon), var(--neon2));
       -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 8px));
               mask:radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 8px));
       animation:spin 9s linear infinite; filter:drop-shadow(0 0 10px rgba(159,91,255,.35));}
     @keyframes spin{to{transform:rotate(360deg)}}
-    .brain-core{text-align:center}
-    .brain-core .tgt{font-size:32px;font-weight:800;letter-spacing:.5px}
-    .brain-core .pct{font-size:18px;opacity:.9}
+    .brain-core{text-align:center;display:grid;place-items:center;padding:8px 10px}
+    .brain-core .tgt{
+      font-weight:900;letter-spacing:.2px;
+      /* não estoura mais o círculo */
+      font-size:clamp(16px,2.6vw,22px);
+      line-height:1.1;max-width:85%;word-break:break-word;
+    }
+    .brain-core .pct{font-size:clamp(14px,2vw,18px);opacity:.9}
+
     .meta{display:grid;gap:10px}
     .meta-row{display:flex;justify-content:space-between;align-items:center;gap:10px}
     .tag{display:inline-block;padding:3px 10px;border-radius:999px;border:1px solid var(--stroke);background:var(--chip);font-size:12px}
@@ -67,15 +89,19 @@
     .scroll{display:flex;gap:8px;overflow:auto;padding:6px 2px}
     .ball{min-width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-weight:800;border:1px solid var(--stroke)}
     .ball.R{background:#ff2740}.ball.B{background:#0f1117}.ball.W{background:#ffffff;color:#111;border-color:#ddd}
-    /* KPIs */
     .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
     .k-card{background:var(--card);border:1px solid var(--stroke);border-radius:12px;padding:10px}
     .k-title{font-size:12px;color:var(--muted)} .k-value{font-size:18px;font-weight:800}
-    /* util */
-    .hide{display:none !important}
 
-    /* mini-histórico simplificado */
-    .status-pill{font-weight:800}
+    /* Histórico novo (chips) */
+    .chips{display:flex;gap:8px;flex-wrap:wrap}
+    .chip-mini{
+      border:1px solid var(--stroke);background:var(--card);
+      padding:4px 8px;border-radius:999px;font-weight:800;font-size:12px;
+      display:inline-flex;align-items:center;gap:6px
+    }
+    .dot{width:8px;height:8px;border-radius:999px;display:inline-block}
+    .dot.win{background:var(--ok)} .dot.loss{background:var(--bad)} .dot.gale{background:var(--warn)}
   </style>
 </head>
 <body>
@@ -93,12 +119,12 @@
           </div>
           <button class="btn" id="btn-start">Iniciar</button>
           <button class="btn ghost" id="btn-stop">Parar</button>
-          <span class="chip" id="phase-pill" style="display:none">ANALISANDO…</span>
+          <!-- ⚠️ tiramos o phase-pill do HEADER -->
         </div>
       </div>
     </div>
 
-    <!-- GRID (2 colunas) -->
+    <!-- GRID -->
     <div class="row g2" style="margin-top:14px">
 
       <!-- COL 1: Banner IA + KPIs -->
@@ -109,9 +135,11 @@
         </div>
 
         <div id="banner" class="neural-banner">
+          <!-- Badges dentro do banner (lugar correto) -->
+          <div class="confirm-badge" id="confirm-badge">ENTRADA CONFIRMADA ✅</div>
           <div class="live" id="live-badge" style="display:none">LIVE</div>
 
-          <!-- cérebro IA -->
+          <!-- CÍRCULO -->
           <div class="brain">
             <div class="ring"></div>
             <div class="brain-core">
@@ -120,17 +148,17 @@
             </div>
           </div>
 
-          <!-- meta da entrada -->
+          <!-- meta -->
           <div class="meta">
             <div class="meta-row"><span class="tag">Alvo</span><b id="meta-alvo">—</b></div>
             <div class="meta-row"><span class="tag">Estratégia</span><b id="meta-strategy">—</b></div>
             <div class="meta-row"><span class="tag">Confluência</span><b id="meta-conf">—</b></div>
             <div class="meta-row"><span class="tag">Gales</span><b id="meta-gales">0/0</b></div>
-            <div class="meta-row"><span class="tag">Recomendação</span><b id="meta-rec">—</b></div>
+            <div class="meta-row"><span class="tag">Status</span><b id="meta-rec">—</b></div>
           </div>
         </div>
 
-        <!-- KPIs rápidos -->
+        <!-- KPIs -->
         <div class="kpis">
           <div class="k-card"><div class="k-title">WinRate (sessão)</div><div class="k-value" id="k-win">—</div></div>
           <div class="k-card"><div class="k-title">Gales médios</div><div class="k-value" id="k-gales">—</div></div>
@@ -152,7 +180,7 @@
 
         <div id="mini-history" class="card hide" style="margin-top:12px">
           <div class="title"><strong>Histórico rápido</strong></div>
-          <div id="mini-hits" style="display:flex;gap:10px;flex-wrap:wrap"></div>
+          <div id="mini-hits" class="chips"></div>
         </div>
       </div>
     </div>
@@ -162,7 +190,7 @@
     const API = location.origin;
     const $ = s => document.querySelector(s);
 
-    // Controles básicos
+    // Controles
     $('#mode-cores').onclick = async () => {
       $('#mode-cores').classList.add('active'); $('#mode-branco').classList.remove('active');
       await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'CORES'})});
@@ -178,52 +206,31 @@
       await fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:false})});
     };
 
-    // Helpers UI
-    function ball(n){
-      if(n===0) return `<div class="ball W">0</div>`;
-      const c = (n>=1 && n<=7) ? 'R' : 'B';
-      return `<div class="ball ${c}">${n}</div>`;
-    }
-    function setBars(W,R,B){
-      $('#bar-w').style.width = W+'%'; $('#bar-r').style.width = R+'%'; $('#bar-b').style.width = B+'%';
-    }
+    // UI helpers
+    function ball(n){ if(n===0) return `<div class="ball W">0</div>`; const c=(n>=1&&n<=7)?'R':'B'; return `<div class="ball ${c}">${n}</div>`; }
+    function setBars(W,R,B){ $('#bar-w').style.width=W+'%'; $('#bar-r').style.width=R+'%'; $('#bar-b').style.width=B+'%'; }
     function human(t){ return t==='W'?'Branco':(t==='R'?'Vermelho':'Preto'); }
 
-    // ----- BANNER / PILL DE FASE (com 'ENTRADA CONFIRMADA')
-    function resetPhasePill(){
-      const pill = $('#phase-pill');
-      pill.style.background = 'transparent';
-      pill.style.color = 'var(--text)';
-      pill.style.display = 'none';
-      pill.textContent = 'ANALISANDO…';
-    }
-
+    // Banner/painel de fase DENTRO do banner
     function setPhase(openTrade, probs){
-      const pill = $('#phase-pill');
+      const badge = $('#confirm-badge');
       if(!openTrade){
-        resetPhasePill();
+        badge.style.display='none';
+        $('#meta-rec').textContent = '—';
         return;
       }
-      pill.style.display = 'inline-block';
 
       if(openTrade.phase === 'analyzing'){
-        pill.textContent = 'ANALISANDO…';
-        pill.style.background = 'transparent';
-        pill.style.color = 'var(--text)';
-        $('#meta-rec').textContent = `Aguardando confirmação • ${human(probs.rec.tgt)} • ${Math.round(probs.rec.p*10)/10}%`;
+        badge.style.display='none';
+        $('#meta-rec').textContent = `Analisando • ${human(probs.rec.tgt)} • ${Math.round(probs.rec.p*10)/10}%`;
       }else{
-        const gstep = openTrade.step||0;
-        const maxg  = openTrade.max_gales||0;
-        if(gstep===0){
-          pill.textContent = 'ENTRADA CONFIRMADA ✅';
-          pill.style.background = 'linear-gradient(90deg, #00ffcc, #9f5bff)';
-          pill.style.color = '#0b0b13';
-          $('#meta-rec').textContent = `${human(openTrade.target)} • G0 (até ${maxg} gales)`;
+        const g = openTrade.step||0, maxg=openTrade.max_gales||0;
+        if(g===0){
+          badge.style.display='inline-block';
+          $('#meta-rec').textContent = `Entrada confirmada • ${human(openTrade.target)} • G0 (até ${maxg})`;
         }else{
-          pill.textContent = `EM ANDAMENTO (GALE ${gstep})`;
-          pill.style.background = 'linear-gradient(90deg, #f59e0b, #ef4444)';
-          pill.style.color = '#fff';
-          $('#meta-rec').textContent = `${human(openTrade.target)} — GALE ${gstep} (até ${maxg})`;
+          badge.style.display='none';
+          $('#meta-rec').textContent = `Em andamento • ${human(openTrade.target)} • GALE ${g}/${maxg}`;
         }
       }
     }
@@ -263,38 +270,30 @@
       $('#k-streak').textContent= streak>0? `+${streak}` : `${streak}`;
     }
 
-    // ----- HISTÓRICO RÁPIDO SIMPLIFICADO
+    // Histórico — chips limpos
     function renderMiniHistory(rows){
       const el = $('#mini-hits');
       const last = (rows||[]).slice(0,12);
-      if(!last.length){
-        $('#mini-history').classList.add('hide');
-        el.innerHTML = '';
-        return;
-      }
+      if(!last.length){ $('#mini-history').classList.add('hide'); el.innerHTML=''; return; }
       $('#mini-history').classList.remove('hide');
 
-      const dot = (status) => {
-        let color = 'var(--muted)';
-        if(status==='WIN') color = 'var(--ok)';
-        else if(status==='LOSS') color = 'var(--bad)';
-        else if(status==='GALE') color = 'var(--warn)';
-        return `<span class="status-pill" style="color:${color}">${status}</span>`;
+      const chip = (r)=>{
+        const cls = r.status==='WIN'?'win':(r.status==='LOSS'?'loss':'gale');
+        const label = r.status;
+        return `<span class="chip-mini" title="${r.label || r.status}">
+                  <span class="dot ${cls}"></span>${label}
+                </span>`;
       };
-
-      el.innerHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap">${last.map(r=>dot(r.status)).join(' • ')}</div>`;
+      el.innerHTML = last.map(chip).join('');
     }
 
     // Estado inicial
     function clearOnFirstLoad(){
-      $('#rolls').innerHTML = '';
-      $('#prob-card').classList.add('hide');
+      $('#rolls').innerHTML=''; $('#prob-card').classList.add('hide');
       $('#mini-history').classList.add('hide');
-      resetPhasePill();
-      $('#banner-tgt').textContent = '—';
-      $('#banner-pct').textContent = '—%';
-      $('#meta-alvo').textContent  = '—';
-      $('#meta-rec').textContent   = '—';
+      $('#confirm-badge').style.display='none';
+      $('#banner-tgt').textContent='—'; $('#banner-pct').textContent='—%';
+      $('#meta-alvo').textContent='—'; $('#meta-rec').textContent='—';
     }
     clearOnFirstLoad();
 
@@ -306,30 +305,28 @@
         $('#state-pill').textContent = `${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`;
         $('#cooldowns').textContent  = `cooldown • branco ${j.cooldowns.white}, cores ${j.cooldowns.color}`;
 
-        const hasHistory = (j.last_50||[]).length > 0;
-
-        $('#rolls').innerHTML = hasHistory ? (j.last_50||[]).slice(-14).map(n=>ball(n)).join('') : '';
+        const hasHistory = (j.last_50||[]).length>0;
+        $('#rolls').innerHTML = hasHistory ? j.last_50.slice(-14).map(n=>ball(n)).join('') : '';
 
         if(hasHistory){
           $('#prob-card').classList.remove('hide');
           setBars(j.probs.W, j.probs.R, j.probs.B);
-
-          const probs = { rec: { tgt:j.probs.rec.tgt, p:j.probs.rec.p } };
+          const probs = { rec:{ tgt:j.probs.rec.tgt, p:j.probs.rec.p } };
           setBannerFrom(j.open_trade, probs);
           setPhase(j.open_trade, probs);
         }else{
           clearOnFirstLoad();
         }
 
-        const sigs = j.signals || [];
+        const sigs = j.signals||[];
         computeKPIs(sigs);
         renderMiniHistory(sigs);
 
       }catch(e){
         console.error(e);
-        $('#state-pill').textContent = 'OFFLINE';
+        $('#state-pill').textContent='OFFLINE';
       }finally{
-        setTimeout(tick, 900);
+        setTimeout(tick,900);
       }
     }
     tick();
