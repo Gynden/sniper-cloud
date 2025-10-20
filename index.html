@@ -42,9 +42,8 @@ body{
 .topbar{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .summary{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .summary .pill{background:rgba(21,21,38,.7);border:1px solid var(--stroke);padding:6px 10px;border-radius:999px;font-weight:800}
-.ping{opacity:.8}
 
-/* Card IA refeito */
+/* Card IA */
 .neural-banner{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:stretch;
   border:1px solid var(--stroke);border-radius:18px;padding:16px;
   background:linear-gradient(180deg, rgba(159,91,255,.07), rgba(0,0,0,0));position:relative}
@@ -57,7 +56,7 @@ body{
 .q-badge.low{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.35)}
 .timer{font-weight:900;padding:4px 10px;border:1px solid var(--stroke);border-radius:999px;background:rgba(21,21,38,.7);min-width:64px;text-align:center}
 
-.left{display:grid;place-items:center;border:1px dashed transparent}
+.left{display:grid;place-items:center}
 .brain{width:100%;max-width:320px;aspect-ratio:1/1;border-radius:50%;display:grid;place-items:center;position:relative}
 .ring{position:absolute;inset:7.5%;border-radius:50%;
   background:conic-gradient(from 90deg, var(--neon), var(--neon2), var(--neon), var(--neon2));
@@ -69,23 +68,19 @@ body{
 .ring--gale{background:conic-gradient(from 90deg,#f59e0b,#ef4444,#f59e0b,#ef4444)}
 .brain-core{text-align:center;display:grid;place-items:center}
 
-/* === NOVO: miolo inteiro preenchido com a cor alvo === */
+/* miolo colorido (preenche tudo) */
 .disc{
   position:absolute;
-  inset: calc(7.5% + 10px); /* mesmo offset do anel */
+  inset: calc(7.5% + 10px);
   border-radius:50%;
   box-shadow: inset 0 0 24px rgba(0,0,0,.25), 0 8px 24px rgba(0,0,0,.25);
 }
-.disc::after{
-  content:""; position:absolute; inset:0; border-radius:50%;
-  background: radial-gradient(closest-side, rgba(255,255,255,.06), transparent 60%);
-}
-.disc.red   { background:linear-gradient(180deg,#ff3856,#b31830); }
-.disc.black { background:linear-gradient(180deg,#10151b,#0a0d12); }
-.disc.white { background:linear-gradient(180deg,#ffffff,#e9ebef); border:1px solid #d9d9d9; }
+.disc::after{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.06),transparent 60%)}
+.disc.red{background:linear-gradient(180deg,#ff3856,#b31830)}
+.disc.black{background:linear-gradient(180deg,#10151b,#0a0d12)}
+.disc.white{background:linear-gradient(180deg,#ffffff,#e9ebef);border:1px solid #d9d9d9}
 
-.pct{font-size:18px;opacity:.92;font-weight:800; z-index:1}
-.alvo{font-weight:900;margin-top:2px; z-index:1}
+.pct{font-size:18px;opacity:.92;font-weight:800;z-index:1}
 
 /* direita */
 .right{display:grid;gap:10px}
@@ -93,22 +88,9 @@ body{
 .item-title{font-size:12px;color:var(--muted);margin-bottom:6px}
 .item-value{font-weight:900}
 
-/* (steps antigos seguem no CSS, mas não são mais usados) */
-.gsteps{display:none !important;}
-
-.coolbars{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.cool{display:flex;gap:6px;align-items:center}
-.cool span{font-size:12px;color:var(--muted)}
-.cool .bar{width:110px;height:8px;border-radius:999px;background:#1a1b2d;border:1px solid var(--stroke);overflow:hidden}
-.cool .bar i{display:block;height:100%;background:#7aa5ff}
-.cool b{font-size:12px;color:var(--muted)}
-
 .ball{min-width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-weight:900;border:1px solid var(--stroke);box-shadow:0 6px 12px rgba(0,0,0,.25)}
 .ball.R{background:#ff2b46}.ball.B{background:#0f1117}.ball.W{background:#fff;color:#111;border-color:#ddd}
 .scroll{display:flex;gap:8px;overflow:auto;padding:6px 2px}
-.heat{height:8px;border-radius:6px;background:#151626;border:1px solid var(--stroke);display:flex;overflow:hidden;margin-top:6px}
-.heat i{flex:1}
-.heat .r{background:#ff2b46}.heat .b{background:#0f1117}.heat .w{background:#ffffff}
 
 .hide{display:none!important}
 </style>
@@ -121,13 +103,12 @@ body{
       <h1>SNIPER BLAZE — Neural Trader</h1>
       <div class="summary">
         <span class="pill" id="state-pill">OFFLINE • —</span>
-        <span class="pill ping" id="ping-pill" title="latência do /state">ping —ms</span>
         <div class="seg">
-          <button type="button" class="active" id="mode-cores" title="Modo CORES (C)">CORES</button>
-          <button type="button" id="mode-branco" title="Modo BRANCO (B)">BRANCO</button>
+          <button type="button" class="active" id="mode-cores" title="Modo CORES">CORES</button>
+          <button type="button" id="mode-branco" title="Modo BRANCO">BRANCO</button>
         </div>
-        <button type="button" class="btn" id="btn-start" title="Iniciar (I)">Iniciar</button>
-        <button type="button" class="btn ghost" id="btn-stop" title="Parar (P)">Parar</button>
+        <button type="button" class="btn" id="btn-start">Iniciar</button>
+        <button type="button" class="btn ghost" id="btn-stop">Parar</button>
       </div>
     </div>
   </div>
@@ -137,19 +118,12 @@ body{
     <!-- Col 1: Card IA -->
     <div class="panel">
       <div class="title">
-        <div class="kpi">
-          <span class="chip" id="chip-dom">Dom20: —</span>
-          <span class="chip" id="chip-gap">Gap W: —</span>
-        </div>
-        <!-- cooldown compacto -->
-        <div class="coolbars">
-          <div class="cool" title="Cooldown do Branco"><span>Branco</span><div class="bar"><i id="cbw"></i></div><b id="cbw-t">0</b></div>
-          <div class="cool" title="Cooldown de Cores"><span>Cores</span><div class="bar"><i id="cbc"></i></div><b id="cbc-t">0</b></div>
-        </div>
+        <div class="kpi"><!-- Dom/Gap removidos --></div>
+        <!-- cooldowns removidos -->
       </div>
 
       <div class="neural-banner">
-        <!-- coluna esquerda -->
+        <!-- esquerda -->
         <div class="left">
           <div class="header-line">
             <span class="confirm-badge" id="confirm-badge">ENTRADA CONFIRMADA ✅</span>
@@ -160,29 +134,28 @@ body{
           <div class="brain">
             <div id="ring" class="ring ring--idle"></div>
             <div class="brain-core">
-              <!-- NOVO: disco preenchido -->
               <div class="disc" id="tgt-disc" aria-label="cor alvo"></div>
               <div class="pct" id="banner-pct">—%</div>
-              <div class="alvo" id="alvo-name">—</div>
+              <!-- alvo-name removido -->
             </div>
           </div>
         </div>
 
-        <!-- coluna direita -->
+        <!-- direita -->
         <div class="right">
-          <div class="item" title="Estratégia representante">
+          <div class="item">
             <div class="item-title">Estratégia</div>
             <div class="item-value" id="meta-strategy">—</div>
           </div>
-          <div class="item" title="Checks que votaram a favor">
+          <div class="item">
             <div class="item-title">Confluência</div>
             <div class="item-value" id="meta-conf">—</div>
           </div>
-          <div class="item" title="Quantidade máxima de gales para esta entrada">
+          <div class="item">
             <div class="item-title">Gales</div>
             <div class="item-value" id="gales-max">—</div>
           </div>
-          <div class="item" title="Estado do sinal">
+          <div class="item">
             <div class="item-title">Status</div>
             <div class="item-value" id="meta-rec">—</div>
           </div>
@@ -190,11 +163,10 @@ body{
       </div>
     </div>
 
-    <!-- Col 2: Giros + Heatmap -->
+    <!-- Col 2: Giros (heatmap removido) -->
     <div class="panel">
       <div class="title"><strong>Últimos giros</strong></div>
       <div id="rolls" class="scroll"></div>
-      <div class="heat" id="heat"></div>
     </div>
   </div>
 </div>
@@ -224,8 +196,6 @@ $('#btn-stop').onclick=()=>fetch(API+'/control',{method:'POST',headers:{'Content
 
 // ===== helpers =====
 function ball(n){ if(n===0) return `<div class="ball W">0</div>`; const c=(n>=1&&n<=7)?'R':'B'; return `<div class="ball ${c}">${n}</div>`; }
-function human(t){ return t==='W'?'Branco':(t==='R'?'Vermelho':'Preto'); }
-
 function setTargetVisual(tgt){
   const disc = $('#tgt-disc');
   disc.className = 'disc';
@@ -233,29 +203,12 @@ function setTargetVisual(tgt){
   else if(tgt==='R') disc.classList.add('red');
   else disc.classList.add('black');
 }
-
-function renderCooldowns(cw,cc){
-  const MW=5, MC=2; $('#cbw').style.width=Math.min(100,(cw/MW)*100)+'%'; $('#cbc').style.width=Math.min(100,(cc/MC)*100)+'%';
-  $('#cbw-t').textContent=cw; $('#cbc-t').textContent=cc;
-}
-
 function computeQuality(openTrade, probs){
   const conf=openTrade?.confluence??0; const maxg=openTrade?.max_gales??0; const p=Number(probs?.rec?.p||0);
   let score=(p*0.6)+(conf*6)-(maxg*8); score=Math.max(0,Math.min(100,Math.round(score)));
   const label=score>=70?'Alta':score>=45?'Média':'Baixa'; return {score,label};
 }
 function setQualityBadge(q){ const el=$('#quality-badge'); el.className='q-badge '+(q.score>=70?'good':q.score>=45?'mid':'low'); el.textContent=`Qualidade: ${q.label} • ${q.score}%`; }
-function heatFrom(seq){
-  const el=$('#heat'); el.innerHTML='';
-  const last = (seq||[]).slice(-50);
-  for(const n of last){
-    const i=document.createElement('i');
-    if(n===0){i.className='w';} else if(1<=n&&n<=7){i.className='r';} else{i.className='b';}
-    el.appendChild(i);
-  }
-}
-
-// ===== gales (somente máximo) =====
 function setGalesMax(openTrade){
   const el = $('#gales-max');
   if(!openTrade){ el.textContent = '—'; return; }
@@ -270,11 +223,14 @@ function setBannerFrom(openTrade, probs){
   const pct = openTrade ? probs?.rec?.p : (probs?.rec?.p || 0);
   setTargetVisual(tgt);
   $('#banner-pct').textContent = `${Math.round(pct*10)/10}%`;
-  $('#alvo-name').textContent = human(tgt);
   $('#meta-conf').textContent = openTrade?.confluence ?? '—';
-  $('#meta-strategy').textContent = openTrade?.strategy || '—';
+  // 👇 Estrategia 1 (white) / 2 (cores)
+  const estr = open_trade_type(openTrade)==='white' ? 'Estratégia 1' :
+               open_trade_type(openTrade)==='color' ? 'Estratégia 2' : '—';
+  $('#meta-strategy').textContent = estr;
   setGalesMax(openTrade);
 }
+function open_trade_type(tr){ return tr?.type || null; }
 
 function setPhase(openTrade, probs){
   const badge=$('#confirm-badge'); const ring=$('#ring');
@@ -293,17 +249,15 @@ function setPhase(openTrade, probs){
     if(_confirmTimer){ clearTimeout(_confirmTimer); _confirmTimer=null; }
     ring.className='ring ring--idle';
     const pr = probs?.rec ? `${Math.round(probs.rec.p*10)/10}%` : '—%';
-    $('#meta-rec').textContent=`Analisando • ${human(probs.rec.tgt)} • ${pr}`;
+    $('#meta-rec').textContent=`Analisando • ${pr}`;
     setGalesMax(openTrade);
     return;
   }
 
-  // fase open
   const g=openTrade.step||0, maxg=openTrade.max_gales||0;
   setGalesMax(openTrade);
 
   if(g===0){
-    // mostra apenas no G0 por 5s
     badge.style.display='inline-block';
     ring.className='ring ring--open';
     $('#meta-rec').textContent=`Sinal ativo • G0 (até ${maxg})`;
@@ -317,42 +271,24 @@ function setPhase(openTrade, probs){
   }
 }
 
-// chips Dom/Gap
-function setExtraChips(j){
-  const seq=j.last_50||[];
-  const last20 = seq.slice(-20).filter(n=>n!==0);
-  const r = last20.filter(n=>1<=n&&n<=7).length;
-  const b = last20.filter(n=>8<=n&&n<=14).length;
-  const dom = r===b?'—':(r>b?'R':'B');
-  $('#chip-dom').textContent = `Dom20: ${dom}`;
-  const lastW = seq.lastIndexOf(0);
-  const gap = lastW===-1 ? seq.length : (seq.length-1)-lastW;
-  $('#chip-gap').textContent = `Gap W: ${gap}`;
-}
-
 // ===== estado inicial =====
 function clearOnFirstLoad(){
-  $('#rolls').innerHTML=''; $('#heat').innerHTML='';
+  $('#rolls').innerHTML='';
   $('#confirm-badge').style.display='none';
-  $('#banner-pct').textContent='—%'; $('#alvo-name').textContent='—';
+  $('#banner-pct').textContent='—%';
   $('#meta-rec').textContent='—';
 }
 
 // ===== Loop =====
 async function tick(){
-  let t0=performance.now();
   try{
-    const res=await fetch(API+'/state'); const j=await res.json(); const t1=performance.now();
-    $('#ping-pill').textContent = `ping ${Math.round(t1-t0)}ms`;
+    const res=await fetch(API+'/state'); const j=await res.json();
 
     $('#state-pill').textContent = `${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`;
     setActiveModeButton(j.mode);
 
-    renderCooldowns(j.cooldowns.white, j.cooldowns.color);
-
     const seq=j.last_50||[]; const has=seq.length>0;
     $('#rolls').innerHTML = has ? seq.slice(-14).map(n=>ball(n)).join('') : '';
-    heatFrom(seq);
 
     const len=seq.length; if(len>lastHistLen){ const now=Date.now(); const dt=now-lastSpinAt; if(dt>1000&&dt<40000){ spinMs = 0.7*spinMs + 0.3*dt; } lastSpinAt=now; lastHistLen=len; }
 
@@ -361,11 +297,9 @@ async function tick(){
       setBannerFrom(j.open_trade, probs);
       setPhase(j.open_trade, probs);
       const q=computeQuality(j.open_trade, probs); setQualityBadge(q);
-      setExtraChips(j);
     }else{
       clearOnFirstLoad();
     }
-
   }catch(e){
     console.error(e); $('#state-pill').textContent='OFFLINE • —';
   }finally{
