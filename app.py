@@ -1,674 +1,351 @@
-# app.py — SPECTRA X (IA de Sinais) - painel Spectra minimalista
-import time, math
+# Spectra X — Backend (Flask)
+# - IA adaptativa simples (pesos por estratégia com atualização online)
+# - Confluência + Confidence Score
+# - Regra: "só manda novo sinal quando terminar os gales do atual"
+# - Endpoints:
+#   POST /api/push_round  -> {"result":"red|black|white"}  (alimenta histórico)
+#   GET  /api/state       -> estado completo (histórico, sinal ativo, métricas)
+#   POST /api/config      -> ajusta config (stake, max_gales, modo, thresholds)
+#   POST /api/reset       -> zera histórico e métricas
+
+import math, time, json, statistics, random
 from collections import deque, defaultdict
-from datetime import datetime, timezone, timedelta
-from flask import Flask, jsonify, request, send_file, make_response
+from datetime import datetime
+from typing import Deque, Dict, List, Optional
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-app = Flask(__name__, static_url_path="", static_folder=".", template_folder=".")
+app = Flask(__name__)
 CORS(app)
 
 # ========================= Config =========================
-HISTORY_MAX = 1200
-CONFLUENCE_MIN_WHITE = 2
-CONFLUENCE_MIN_COLOR = 1
-SELECAO_RISCO = "conservador"      # "conservador" | "agressivo"
-EVAL_SAME_SPIN = False
-STRICT_ONE_AT_A_TIME = True
-DATA_SOURCE = "tipminer"
-
-# ===== Gerenciamento de banca / sessão =====
-BANKROLL          = 100.0
-STAKE_PCT_BASE    = 0.02
-MODE_RISK         = "normal"  # "seguro" | "normal" | "agressivo"
-
-STOP_WIN_PCT      = 0.05
-STOP_LOSS_PCT     = 0.05
-
-CONF_GOOD         = 0.60
-CONF_OK           = 0.55
-WR_BAD            = 0.48
-WR_GOOD_RESUME    = 0.55
+HISTORY_MAX            = 600
+SHOW_LAST              = 50
+DEFAULT_STAKE          = 2.00
+DEFAULT_MAX_GALES      = 2
+DEFAULT_MODE           = "hybrid"   # "neural" | "hybrid" | "manual"
+CONFLUENCE_MIN_COLOR   = 2          # votos mínimos (red/black)
+CONFLUENCE_MIN_WHITE   = 2          # votos mínimos (white)
+CONFIDENCE_MIN         = 0.62       # só dispara se confiança >= 62%
+EW_LEARN_RATE          = 0.12       # taxa de aprendizado dos pesos das estratégias
+WHITE_ODDS             = 14.0       # payout líquido aproximado do branco
+COLOR_ODDS             = 1.0        # payout líquido aproximado da cor
 
 # ========================= Estado =========================
-history = deque(maxlen=HISTORY_MAX)   # roleta (0..14)
-signals = deque(maxlen=2000)          # log para estatística/relatório
-last_snapshot = []
-bot_on = False
-mode_selected = "CORES"               # "BRANCO" | "CORES"
+history: Deque[str] = deque(maxlen=HISTORY_MAX)    # valores: "red" | "black" | "white"
+metrics = {
+    "total_signals": 0,
+    "wins": 0,
+    "losses": 0,
+    "bank_result": 0.0,
+    "per_color": {"red":{"signals":0,"wins":0,"losses":0},
+                  "black":{"signals":0,"wins":0,"losses":0},
+                  "white":{"signals":0,"wins":0,"losses":0}},
+}
+config = {
+    "stake": DEFAULT_STAKE,
+    "max_gales": DEFAULT_MAX_GALES,
+    "mode": DEFAULT_MODE,
+    "confluence_min_color": CONFLUENCE_MIN_COLOR,
+    "confluence_min_white": CONFLUENCE_MIN_WHITE,
+    "confidence_min": CONFIDENCE_MIN,
+}
 
-open_trade = None
-trade_counter = 0
-cool_white = 0
-cool_color = 0
+# Sinal ativo controla gales e bloqueia novos sinais até encerrar
+active_signal: Optional[Dict] = None
 
-last_ingest_wall = None
-last_ingest_mono = None
+# Pesos das estratégias (aprendizado online)
+strategy_weights: Dict[str, float] = {
+    "repeat_three": 1.00,
+    "anti_chop": 0.90,
+    "cluster_bias": 0.90,
+    "recent_white_near": 1.05,
+    "long_streak_break": 0.85,
+    "time_window_bias": 0.80,   # simulação de janela horária
+}
 
-# ========================= Utils =========================
-def is_red(n):   return 1 <= n <= 7
-def color_code(n):
-    if n == 0: return "W"
-    return "R" if is_red(n) else "B"
+# ========================= Funções Auxiliares =========================
+def now_iso():
+    return datetime.utcnow().isoformat() + "Z"
 
-def now_iso_utc():  return datetime.now(timezone.utc).isoformat()
-def now_local_hms(): return datetime.now().strftime("%H:%M:%S")
+def softmax(scores: Dict[str, float]):
+    # Estabilizado
+    m = max(scores.values()) if scores else 0.0
+    exps = {k: math.exp(v - m) for k, v in scores.items()}
+    total = sum(exps.values()) or 1.0
+    return {k: v/total for k, v in exps.items()}
 
-def last_k_colors(seq, k, ignore_white=True):
-    out=[]
-    for v in reversed(seq):
-        if v==0 and ignore_white: continue
-        out.append("R" if is_red(v) else "B")
-        if len(out)>=k: break
-    return list(reversed(out))
+def normalize_votes(votes: Dict[str, float]) -> Dict[str, float]:
+    s = sum(max(0.0, x) for x in votes.values()) or 1.0
+    return {k: max(0.0, v) / s for k, v in votes.items()}
 
-def counts_last(seq, k):
-    lst = last_k_colors(seq, k)
-    return lst.count("R"), lst.count("B")
-
-def whites_in_window(seq, k): return sum(1 for v in seq[-k:] if v==0)
-def gap_white(seq):
-    for i in range(len(seq)-1, -1, -1):
-        if seq[i] == 0:
-            return (len(seq)-1) - i
-    return len(seq)
-
-def overlap(a, b, kmax=60):
-    kmax = min(kmax, len(a), len(b))
-    for k in range(kmax, 0, -1):
-        if a[-k:] == b[-k:]:
-            return k
-    return 0
-
-def merge_snapshot(snapshot):
-    """Adiciona somente itens novos do snapshot (detecta direção)."""
-    global last_snapshot
-    if not snapshot: return 0
-    snap = [int(x) for x in snapshot if isinstance(x, int) and 0 <= x <= 14]
-    if not snap: return 0
-
-    added = 0
-    if not last_snapshot:
-        last_snapshot = list(snap)
-        for n in snap:
-            history.append(n); added += 1
-        return added
-
-    a = snap; b = snap[::-1]
-    oa = overlap(last_snapshot, a)
-    ob = overlap(last_snapshot, b)
-    chosen = a if oa >= ob else b
-    k = max(oa, ob)
-
-    if k >= len(chosen):
-        last_snapshot = list(chosen); return 0
-
-    new_tail = chosen[k:]
-    for n in new_tail:
-        history.append(n); added += 1
-    last_snapshot = list(chosen)
-    return added
-
-def tick_cooldowns():
-    global cool_white, cool_color
-    if cool_white > 0: cool_white -= 1
-    if cool_color > 0: cool_color -= 1
-
-# ========================= IA leve ======================
-class SpectraLearner:
-    """Contagens tipo 'beta' simples."""
-    def __init__(self):
-        self.red_s = 1.0; self.red_f = 1.0
-        self.white_s = 1.0; self.white_f = 13.0
-        self.last_preds = deque(maxlen=10)
-        self.recent_outcomes = deque(maxlen=60)
-
-    def predict(self):
-        p_red = self.red_s / (self.red_s + self.red_f)
-        p_white = self.white_s / (self.white_s + self.white_f)
-        p_red   = max(0.05, min(0.95, p_red))
-        p_white = max(0.01, min(0.40, p_white))
-        return p_red, p_white
-
-    def update_from_spin(self, outcome_color):
-        if outcome_color == "W":
-            self.white_s += 1.0
-        else:
-            self.white_f += 1.0
-            if outcome_color == "R": self.red_s += 1.0
-            else:                    self.red_f += 1.0
-
-    def register_decision_quality(self, win: bool):
-        self.recent_outcomes.append(1 if win else 0)
-
-    def winrate60(self):
-        n = max(1, len(self.recent_outcomes))
-        return sum(self.recent_outcomes)/n
-
-    def push_pred_major(self, p_major):
-        self.last_preds.append(max(1e-6, min(1-1e-6, p_major)))
-
-    def entropy_high(self):
-        if len(self.last_preds) < self.last_preds.maxlen: return False
-        def H(p): return - (p*math.log(p) + (1-p)*math.log(1-p))
-        e = sum(H(p) for p in self.last_preds)/len(self.last_preds)
-        return e > 0.95
-
-learner = SpectraLearner()
-
-# ========================= White legado ======================
-WHITE_STRATS = [
-    {"name": "Gap 18+", "max_gales": 2, "check": lambda s: gap_white(s) >= 18},
-    {"name": "Cluster recente (≤10)", "max_gales": 1, "check": lambda s: whites_in_window(s,10)>=1},
-    {"name": "Baixa densidade (≤2 em 50)", "max_gales": 2, "check": lambda s: whites_in_window(s,50) <= 2},
-]
-def select_white(seq):
-    matches=[st for st in WHITE_STRATS if st["check"](seq)]
-    if len(matches) < CONFLUENCE_MIN_WHITE: return None,0
-    rep = min(matches, key=lambda x: x["max_gales"]) if SELECAO_RISCO=="conservador" else max(matches, key=lambda x: x["max_gales"])
-    return rep, len(matches)
-
-# ========================= Probs para UI ======================
-def estimate_probs_ai(seq):
-    p_red, p_white = learner.predict()
-    p_black = 1.0 - p_red
-    rem = max(0.0001, 1.0 - p_white)
-    s = p_red + p_black
-    p_red = rem*(p_red/s); p_black = rem*(p_black/s)
-    best = max([("W",p_white),("R",p_red),("B",p_black)], key=lambda x: x[1])
-    return {"W":p_white,"R":p_red,"B":p_black,"rec":best}
-
-# ========================= Logging ======================
-def format_label(target, step, max_gales, conf=None):
-    name = {"W":"BRANCO","R":"VERMELHO","B":"PRETO"}[target]
-    conf_txt = (f" — Confluência: {conf}" if conf else "")
-    if step == 0:  return f"{name} (até {max_gales} gale{'s' if max_gales!=1 else ''}){conf_txt}"
-    return f"{name} — GALE {step}"
-
-def append_signal_entry(mode, target, step, status="open", came=None,
-                        strategy=None, max_gales=0, conf=None, phase=None, trade_id=None):
-    came_color = color_code(came) if isinstance(came, int) else None
-    signals.appendleft({
-        "ts": now_local_hms(),
-        "iso_ts": now_iso_utc(),
-        "mode": mode, "target": target,
-        "status": status, "phase": phase,
-        "gale": step, "max_gales": max_gales,
-        "label": format_label(target, step, max_gales, conf),
-        "strategy": strategy or ("IA Spectra X" if mode=="CORES" else "Estratégia branca"),
-        "confluence": conf,
-        "came": came, "came_color": came_color,
-        "trade_id": trade_id
-    })
-
-# ========================= Estatísticas ======================
-def stats_by_strategy():
-    agg = defaultdict(lambda: {"entries":0,"win":0,"loss":0})
-    for s in signals:
-        if s.get("status") in ("open","ANALYZING","GALE"): continue
-        strat = s.get("strategy") or "—"
-        agg[strat]["entries"] += 1
-        if s.get("status") == "WIN":  agg[strat]["win"]  += 1
-        if s.get("status") == "LOSS": agg[strat]["loss"] += 1
-    out={}
-    for k,v in agg.items():
-        n=max(1,v["entries"]); assertv=round(100.0*v["win"]/n,1); pl=v["win"]-v["loss"]
-        out[k]={"entries":v["entries"],"win":v["win"],"loss":v["loss"],"assert":assertv,"pl_sim":pl}
-    return out
-
-def hourly_assertivity(last_hours=24, kind_filter=None):
-    now = datetime.now(timezone.utc)
-    buckets = {}
-    for i in range(last_hours, -1, -1):
-        h = (now - timedelta(hours=i)).replace(minute=0, second=0, microsecond=0)
-        buckets[h] = {"win":0,"loss":0}
-    for s in signals:
-        if s.get("status") not in ("WIN","LOSS"): continue
-        if kind_filter and s.get("mode") != kind_filter: continue
-        try: ts = datetime.fromisoformat(s["iso_ts"])
-        except: continue
-        ts = ts.astimezone(timezone.utc).replace(minute=0, second=0, microsecond=0)
-        if ts in buckets:
-            if s["status"]=="WIN": buckets[ts]["win"]  += 1
-            else:                  buckets[ts]["loss"] += 1
-    out=[]
-    for h in sorted(buckets.keys()):
-        w=buckets[h]["win"]; l=buckets[h]["loss"]; n=max(1,w+l)
-        out.append({"t":h.isoformat().replace("+00:00","Z"),
-                    "win":w,"loss":l,"acc": round(w/n,4)})
-    return out
-
-# ===== Sessão / Stake / Coach =====
-def session_pnl_units():
-    u = 0
-    for s in signals:
-        if s.get("status") == "WIN":  u += 1
-        if s.get("status") == "LOSS": u -= 1
-    return u
-
-def bankroll_delta_and_stops():
-    units = session_pnl_units()
-    stake_med = max(0.5, BANKROLL * STAKE_PCT_BASE)
-    delta = units * stake_med
-    hit_win  = (delta >=  BANKROLL * STOP_WIN_PCT)
-    hit_loss = (delta <= -BANKROLL * STOP_LOSS_PCT)
-    return delta, hit_win, hit_loss
-
-def suggest_stake(conf_pct, mkt_bad):
-    base = STAKE_PCT_BASE
-    if MODE_RISK == "seguro":      base *= 0.5
-    elif MODE_RISK == "agressivo": base *= 1.5
-    if mkt_bad:
-        pct = base * 0.5
-        return round(BANKROLL * pct, 2), "reduzido"
-    if conf_pct >= 100*CONF_GOOD:
-        pct = base * 1.0
-    elif conf_pct >= 100*CONF_OK:
-        pct = base * 0.5
-    else:
-        pct = 0.0
-    return round(BANKROLL * pct, 2), ("normal" if pct else "aguardar")
-
-def coach_message(state):
-    msgs = []
-    if state.get("market_bad"): msgs.append("Mercado irregular (winrate baixo/entropia).")
-    if state.get("stop_hit") == "win":  msgs.append("Stop Win atingido — pausar.")
-    if state.get("stop_hit") == "loss": msgs.append("Stop Loss atingido — pausar.")
-    ot = state.get("open_trade")
-    if ot:
-        msgs.append(f"Sinal {ot.get('target')} • GALE {ot.get('step',0)}/{ot.get('max_gales',0)}.")
-    else:
-        rec = state.get("probs",{}).get("rec",{})
-        if rec:
-            tgt, p = rec.get("tgt"), rec.get("p")
-            if not state.get("market_bad") and p >= 55:
-                lab = {"R":"Vermelho","B":"Preto","W":"Branco"}.get(tgt,"—")
-                msgs.append(f"Entrada sugerida: {lab} ({p}%).")
-            else:
-                msgs.append("Aguardando padrão com confiança.")
-    return " ".join(msgs[:2]) or "—"
-
-# ========================= Motor ====================================
-def trade_lock_active():
-    return STRICT_ONE_AT_A_TIME and (open_trade is not None)
-
-def try_open_trade_if_needed():
-    global open_trade, cool_color, cool_white, trade_counter
-    if trade_lock_active() or not bot_on: return
-    seq = list(history)
-    if not seq: return
-
-    p_red, p_white = learner.predict()
-    p_major = max(p_white, p_red, 1.0-p_red)
-    learner.push_pred_major(p_major)
-
-    if mode_selected == "BRANCO":
-        if cool_white > 0: return
-        rep, conf = select_white(seq)
-        if rep:
-            trade_counter += 1
-            open_trade = {
-                "id": trade_counter, "type": "white", "target": "W",
-                "step": 0, "max_gales": rep["max_gales"],
-                "strategy": rep["name"], "confluence": conf,
-                "opened_at": len(seq), "opened_at_ts": time.time(),
-                "phase": "analyzing"
-            }
-            append_signal_entry("BRANCO","W",0,status="ANALYZING",
-                                strategy=rep["name"],max_gales=rep["max_gales"],conf=conf,
-                                phase="analyzing", trade_id=trade_counter)
-    else:
-        if cool_color > 0: return
-        tgt = "R" if p_red >= (1.0 - p_red) else "B"
-        trade_counter += 1
-        open_trade = {
-            "id": trade_counter, "type": "color", "target": tgt,
-            "step": 0, "max_gales": 2,
-            "strategy": "IA Spectra X", "confluence": 1,
-            "opened_at": len(seq), "opened_at_ts": time.time(),
-            "phase": "analyzing"
-        }
-        append_signal_entry("CORES",tgt,0,status="ANALYZING",
-                            strategy="IA Spectra X",max_gales=2,conf=1,
-                            phase="analyzing", trade_id=trade_counter)
-
-def process_new_number(n):
-    """Processa giro novo e resolve trade aberto."""
-    global open_trade, cool_color, cool_white
-
-    tick_cooldowns()
-    learner.update_from_spin(color_code(n))  # IA aprende TODO giro
-
-    if not open_trade:
-        try_open_trade_if_needed()
-        return
-
-    # Mudou o modo? cancela
-    if (mode_selected == "BRANCO" and open_trade.get("type") == "color") or \
-       (mode_selected == "CORES"  and open_trade.get("type") == "white"):
-        open_trade = None
-        return
-
-    # ANALYZING -> OPEN
-    if open_trade.get("phase") == "analyzing":
-        open_trade["phase"] = "open"
-        append_signal_entry(
-            "BRANCO" if open_trade["type"]=="white" else "CORES",
-            open_trade["target"], open_trade["step"],
-            status="open", strategy=open_trade["strategy"],
-            max_gales=open_trade["max_gales"], conf=open_trade.get("confluence"),
-            phase="open", trade_id=open_trade["id"]
-        )
-        return
-
-    # Avaliar no giro subsequente
-    if not EVAL_SAME_SPIN:
-        if len(history) <= open_trade["opened_at"]:
-            return
-    else:
-        if len(history) < open_trade["opened_at"]:
-            return
-
-    tgt  = open_trade["target"]
-    came = color_code(n)
-    accurate_hit = (came == tgt) and (came in ("R","B") if tgt in ("R","B") else (came=="W"))
-
-    if accurate_hit:
-        append_signal_entry(
-            "BRANCO" if open_trade["type"]=="white" else "CORES",
-            tgt, open_trade["step"], status="WIN", came=n,
-            strategy=open_trade["strategy"], max_gales=open_trade["max_gales"],
-            conf=open_trade.get("confluence"), trade_id=open_trade["id"]
-        )
-        learner.register_decision_quality(True)
-        if open_trade["type"]=="white": cool_white = 5
-        else:                           cool_color = 2
-        open_trade = None
-    else:
-        if open_trade["step"] >= open_trade["max_gales"]:
-            append_signal_entry(
-                "BRANCO" if open_trade["type"]=="white" else "CORES",
-                tgt, open_trade["step"], status="LOSS", came=n,
-                strategy=open_trade["strategy"], max_gales=open_trade["max_gales"],
-                conf=open_trade.get("confluence"), trade_id=open_trade["id"]
-            )
-            learner.register_decision_quality(False)
-            if open_trade["type"]=="white": cool_white = 5
-            else:                           cool_color = 2
-            open_trade = None
-        else:
-            open_trade["step"] += 1
-            append_signal_entry(
-                "BRANCO" if open_trade["type"]=="white" else "CORES",
-                tgt, open_trade["step"], status="GALE", came=n,
-                strategy=open_trade["strategy"], max_gales=open_trade["max_gales"],
-                conf=open_trade.get("confluence"), trade_id=open_trade["id"]
-            )
-
-# ========================= Rotas ====================================
-@app.route("/")
-def index():
-    return send_file("index.html")
-
-@app.route("/state")
-def state():
-    seq = list(history)
-    probs = estimate_probs_ai(seq) if seq else {"W":0.066,"R":0.467,"B":0.467,"rec":("B",0.467)}
-
-    # Telemetria
-    server_time = now_iso_utc()
-    seconds_since_last = None
-    latency_ms = None
-    live_ok = True
-    if last_ingest_wall is not None:
-        seconds_since_last = max(0.0, (datetime.now(timezone.utc) - last_ingest_wall).total_seconds())
-        live_ok = seconds_since_last < 30.0
-    if last_ingest_mono is not None:
-        latency_ms = int((time.monotonic() - last_ingest_mono) * 1000)
-
-    lock_reason = None
-    if STRICT_ONE_AT_A_TIME and open_trade is not None:
-        lock_reason = "Aguardando terminar GALES do sinal atual"
-
-    strat_stats = stats_by_strategy()
-
-    # ===== Autopause & stake & coach =====
-    wr60 = learner.winrate60()
-    market_bad = (wr60 < WR_BAD) or learner.entropy_high()
-    delta, hit_win, hit_loss = bankroll_delta_and_stops()
-    stop_hit = "win" if hit_win else ("loss" if hit_loss else None)
-    autopause = market_bad or bool(stop_hit)
-
-    conf_pct = round(100*probs["rec"][1], 1) if isinstance(probs["rec"], tuple) else probs["rec"]["p"]
-    stake_value, stake_mode = suggest_stake(conf_pct, autopause)
-
-    out = {
-        "ok": True,
-        "bot_on": bot_on,
-        "mode": mode_selected,
-        "history": seq[-20:], "last_50": seq[-50:],
-        "probs": {
-            "W": round(100*probs["W"],1),
-            "R": round(100*probs["R"],1),
-            "B": round(100*probs["B"],1),
-            "rec": {"tgt": probs["rec"][0], "p": round(100*probs["rec"][1],1)}
-        },
-        "signals": list(signals)[:80],
-        "cooldowns": {"white": max(0,cool_white), "color": max(0,cool_color)},
-        "open_trade": open_trade,
-
-        "confluence": {"white_min": CONFLUENCE_MIN_WHITE, "color_min": CONFLUENCE_MIN_COLOR, "selecao_risco": SELECAO_RISCO},
-        "eval_same_spin": EVAL_SAME_SPIN,
-        "strict_one_at_a_time": STRICT_ONE_AT_A_TIME,
-        "lock_reason": lock_reason,
-
-        "data_source": DATA_SOURCE,
-        "server_time": server_time,
-        "seconds_since_last": seconds_since_last,
-        "latency_ms": latency_ms,
-        "live_ok": live_ok,
-
-        "round_id": len(seq),
-        "trade_id": open_trade["id"] if open_trade else None,
-        "strategy_stats": strat_stats,
-
-        # sessão/coach
-        "winrate_60": round(wr60,3),
-        "market_bad": market_bad,
-        "autopause": autopause,
-        "stop_hit": stop_hit,
-        "session_delta": round(delta,2),
-        "stake_suggested": {"value": stake_value, "mode": stake_mode},
-        "coach": coach_message({
-            "market_bad": market_bad,
-            "stop_hit": stop_hit,
-            "open_trade": open_trade,
-            "probs": {"rec":{"tgt": probs["rec"][0], "p": round(100*probs["rec"][1],1)}}
-        })
+def recent_counts(n=10):
+    last = list(history)[-n:]
+    return {
+        "red":   last.count("red"),
+        "black": last.count("black"),
+        "white": last.count("white"),
+        "n": len(last)
     }
-    return jsonify(out)
 
-@app.route("/predict")
-def predict():
-    p_red, p_white = learner.predict()
-    return jsonify({"ok": True, "p_red": p_red, "p_black": 1-p_red, "p_white": p_white})
+# ========================= Estratégias =========================
+def strat_repeat_three():
+    """Se últimas 2 iguais, tende a repetir a 3ª."""
+    if len(history) < 2: return {}
+    if history[-1] == history[-2] and history[-1] in ("red","black"):
+        return {history[-1]: 1.0}
+    return {}
 
-@app.route("/stats")
-def stats():
-    return jsonify({
-        "ok": True,
-        "winrate_60": learner.winrate60(),
-        "mercado_ruim": (learner.winrate60() < WR_BAD) or learner.entropy_high(),
-        "entropia_alta": learner.entropy_high(),
-        "open_trade": open_trade
-    })
+def strat_anti_chop():
+    """Evita alternância ABAB -> sugere manter a última cor."""
+    if len(history) < 4: return {}
+    h = list(history)
+    if h[-4] != h[-3] and h[-3] != h[-2] and h[-2] != h[-1] and {h[-4],h[-2]}=={"red","black"} and {h[-3],h[-1]}=={"red","black"}:
+        # padrão alternante forte -> manter a última
+        if h[-1] in ("red","black"):
+            return {h[-1]: 1.0}
+    return {}
 
-@app.route("/history")
-def history_api():
-    try: hours = int(request.args.get("hours","24"))
-    except: hours = 24
-    kind = request.args.get("kind") or None
-    points = hourly_assertivity(last_hours=max(1,min(168,hours)), kind_filter=kind if kind in ("CORES","BRANCO") else None)
-    return jsonify({"ok": True, "points": points})
+def strat_cluster_bias():
+    """Se houve cluster recente de uma cor (>=3 em 5), favorece essa cor."""
+    if len(history) < 5: return {}
+    last5 = list(history)[-5:]
+    r = last5.count("red")
+    b = last5.count("black")
+    out = {}
+    if r >= 3: out["red"] = 1.0
+    if b >= 3: out["black"] = 1.0
+    return out
 
-# ===== NOVO: endpoint de performance (PnL, streaks, heatmap) =====
-@app.route("/performance")
-def performance():
-    # PnL acumulado por ordem cronológica (unidades +1/-1)
-    curve = []
-    cum = 0
-    # signals é appendleft(); para cronologia, iteramos do fim para o começo
-    for s in reversed(signals):
-        if s.get("status") not in ("WIN","LOSS"): continue
-        ts = s.get("iso_ts") or now_iso_utc()
-        if s["status"] == "WIN":  cum += 1
-        else:                     cum -= 1
-        curve.append({"t": ts, "pnl": cum})
+def strat_recent_white_near():
+    """White tende a aparecer em janelas próximas (heurística)."""
+    # Se saiu white nas últimas 8, dá leve viés para white
+    last8 = list(history)[-8:]
+    if "white" in last8:
+        return {"white": 1.0}
+    return {}
 
-    # Streaks (atual e máximos)
-    cur_streak = {"side": None, "len": 0}
-    max_win = 0; max_loss = 0
-    # calcular máximos
-    run = 0; side = None
-    for s in reversed(signals):
-        if s.get("status") not in ("WIN","LOSS"): continue
-        this = 1 if s["status"]=="WIN" else -1
-        if side is None or (this>0 and side>0) or (this<0 and side<0):
-            run += 1; side = this
-        else:
-            if side>0: max_win = max(max_win, run)
-            else:      max_loss = max(max_loss, run)
-            run = 1; side = this
-    if side is not None:
-        if side>0: max_win = max(max_win, run)
-        else:      max_loss = max(max_loss, run)
+def strat_long_streak_break():
+    """Streak muito longa tende a quebrar (se >4, aposta na cor oposta)."""
+    if not history: return {}
+    last = history[-1]
+    # conta streak atual
+    streak = 1
+    for i in range(len(history)-2, -1, -1):
+        if history[i] == last: streak += 1
+        else: break
+    if last in ("red","black") and streak >= 5:
+        return {"red" if last=="black" else "black": 1.0}
+    return {}
 
-    # streak atual (olhando da esquerda — mais recente primeiro)
-    run = 0; side = None
-    for s in signals:
-        if s.get("status") not in ("WIN","LOSS"): continue
-        this = 1 if s["status"]=="WIN" else -1
-        if side is None: side = this
-        if (this>0 and side>0) or (this<0 and side<0):
-            run += 1
-        else:
-            break
-    if side is not None:
-        cur_streak["side"] = "WIN" if side>0 else "LOSS"
-        cur_streak["len"]  = run
+def strat_time_window_bias():
+    """Simula viés horário (ex.: certos horários favorecem mais cores).
+       Para demo: usa o minuto atual para alternar sutilmente."""
+    m = datetime.utcnow().minute
+    if m % 10 in (0,1,2):   return {"red": 0.8}
+    if m % 10 in (3,4,5):   return {"black": 0.8}
+    if m % 10 in (6,7):     return {"white": 0.6}
+    return {}
 
-    # Heatmap por hora (últimos 7 dias)
-    now = datetime.now(timezone.utc)
-    cutoff = now - timedelta(days=7)
-    buckets = {h: {"win":0,"tot":0} for h in range(24)}
-    for s in signals:
-        if s.get("status") not in ("WIN","LOSS"): continue
-        try: ts = datetime.fromisoformat(s["iso_ts"])
-        except: continue
-        if ts.tzinfo is None: ts = ts.replace(tzinfo=timezone.utc)
-        if ts < cutoff: continue
-        h = ts.hour
-        buckets[h]["tot"] += 1
-        if s["status"]=="WIN": buckets[h]["win"] += 1
-    heat = []
-    for h in range(24):
-        w=buckets[h]["win"]; t=buckets[h]["tot"]; acc = (w/max(1,t))
-        heat.append({"hour": h, "acc": round(acc,4), "n": t})
+STRATEGY_FUNCS = {
+    "repeat_three": strat_repeat_three,
+    "anti_chop": strat_anti_chop,
+    "cluster_bias": strat_cluster_bias,
+    "recent_white_near": strat_recent_white_near,
+    "long_streak_break": strat_long_streak_break,
+    "time_window_bias": strat_time_window_bias,
+}
 
-    return jsonify({"ok": True, "pnl_curve": curve, "streaks": {"current": cur_streak, "max_win": max_win, "max_loss": max_loss}, "hour_heatmap": heat})
+def compute_votes() -> Dict[str, float]:
+    """Combina votos das estratégias ponderados por pesos aprendidos."""
+    raw = defaultdict(float)
+    for name, func in STRATEGY_FUNCS.items():
+        out = func()
+        w = strategy_weights.get(name, 1.0)
+        for k, v in out.items():
+            raw[k] += v * w
+    # normaliza para [0..1] relativo
+    norm = normalize_votes(raw)
+    return norm  # dict color->0..1
 
-@app.route("/report")
-def report():
-    rows = []
-    for s in list(signals)[:300]:
-        if s.get("status") in ("open","ANALYZING","GALE"): continue
-        rows.append(f"<tr><td>{s['iso_ts']}</td><td>{s['mode']}</td><td>{s['strategy']}</td><td>{s['target']}</td><td>{s['status']}</td></tr>")
-    html = f"""
-    <html><head><meta charset='utf-8'><title>Relatório SPECTRA X</title>
-    <style>body{{font:14px Arial;color:#111}} table{{border-collapse:collapse;width:100%}} th,td{{border:1px solid #ddd;padding:6px}} th{{background:#eee}}</style>
-    </head><body>
-    <h2>Relatório — SPECTRA X</h2>
-    <p>Gerado em {now_iso_utc()}</p>
-    <p>Winrate(60): {round(learner.winrate60()*100,1)}% — Mercado: {"Ruim" if (learner.winrate60()<WR_BAD or learner.entropy_high()) else "OK"}</p>
-    <h3>Últimas entradas</h3>
-    <table><thead><tr><th>Quando</th><th>Modo</th><th>Estratégia</th><th>Alvo</th><th>Resultado</th></tr></thead>
-    <tbody>{''.join(rows) or "<tr><td colspan='5'>Sem dados.</td></tr>"}</tbody></table>
-    <script>window.onload=()=>window.print()</script>
-    </body></html>"""
-    resp = make_response(html); resp.headers["Content-Type"]="text/html; charset=utf-8"
-    return resp
+def decide_signal():
+    """Decide se abre novo sinal (respeitando bloqueio por gales)."""
+    global active_signal
+    if active_signal and active_signal.get("status") == "running":
+        return None  # bloqueado até encerrar gales
 
-@app.route("/ingest", methods=["POST"])
-def ingest():
-    global last_ingest_wall, last_ingest_mono
-    payload = request.get_json(silent=True) or {}
-    snap = payload.get("history") or []
-    added = merge_snapshot(snap)
-    last_ingest_wall = datetime.now(timezone.utc)
-    last_ingest_mono = time.monotonic()
-    if added:
-        for n in snap[-added:]:
-            process_new_number(n)
+    votes = compute_votes()  # 0..1
+    # transforma votos em "scores" de decisão
+    scores = {
+        "red":   votes.get("red", 0.0),
+        "black": votes.get("black", 0.0),
+        "white": votes.get("white", 0.0) * 1.15,  # leve bônus por payoff maior
+    }
+    # Confluências mínimas (em termos de votos relativos)
+    conf_color = config["confluence_min_color"] / 10.0  # mapeia 2 -> 0.2 etc (heurístico)
+    conf_white = config["confluence_min_white"] / 10.0
+
+    # escolhe melhor
+    best_color = max(scores, key=lambda k: scores[k])
+    best_score = scores[best_color]
+
+    # Confidence por softmax
+    probs = softmax(scores)
+    confidence = probs.get(best_color, 0.0)
+
+    # Aplica thresholds
+    if best_color in ("red","black"):
+        if best_score < conf_color or confidence < config["confidence_min"]:
+            return None
     else:
-        tick_cooldowns()
-        if not trade_lock_active():
-            try_open_trade_if_needed()
-    return jsonify({"ok": True, "added": added, "time": datetime.now().isoformat()})
+        if best_score < conf_white or confidence < config["confidence_min"]:
+            return None
 
-@app.route("/control", methods=["POST"])
-def control():
-    global bot_on, mode_selected, open_trade, cool_color, cool_white, \
-           EVAL_SAME_SPIN, STRICT_ONE_AT_A_TIME, CONFLUENCE_MIN_WHITE, CONFLUENCE_MIN_COLOR, SELECAO_RISCO
-    data = request.get_json(silent=True) or {}
+    # Abre sinal
+    active_signal = {
+        "created_at": now_iso(),
+        "color": best_color,
+        "confidence": round(confidence, 3),
+        "scores": scores,
+        "gale_step": 0,
+        "max_gales": config["max_gales"],
+        "stake": config["stake"],
+        "status": "running",
+        "result": None,
+        "history_snapshot_size": len(history),
+        "strategy_votes": compute_votes(),
+    }
+    metrics["total_signals"] += 1
+    metrics["per_color"][best_color]["signals"] += 1
+    return active_signal
 
-    if "bot_on" in data: bot_on = bool(data["bot_on"])
-    if "mode" in data:
-        m = str(data["mode"]).strip().upper()
-        if m in ("BRANCO","CORES"):
-            mode_selected = m; open_trade = None; cool_white = 0; cool_color = 0
-    if "confluence_white" in data:
-        try: CONFLUENCE_MIN_WHITE = max(1, int(data["confluence_white"]))
-        except: pass
-    if "confluence_color" in data:
-        try: CONFLUENCE_MIN_COLOR = max(1, int(data["confluence_color"]))
-        except: pass
-    if "risk" in data and data["risk"] in ("conservador","agressivo"):
-        SELECAO_RISCO = data["risk"]
-    if "eval_same_spin" in data: EVAL_SAME_SPIN = bool(data["eval_same_spin"])
-    if "strict_one_at_a_time" in data: STRICT_ONE_AT_A_TIME = bool(data["strict_one_at_a_time"])
+def odds_for(color: str) -> float:
+    return WHITE_ODDS if color == "white" else COLOR_ODDS
 
-    # novos ajustes de banca
-    global BANKROLL, STAKE_PCT_BASE, MODE_RISK, STOP_WIN_PCT, STOP_LOSS_PCT
-    if "bankroll" in data:
-        try: BANKROLL = float(data["bankroll"])
-        except: pass
-    if "stake_pct" in data:
-        try: STAKE_PCT_BASE = max(0.001, float(data["stake_pct"]))
-        except: pass
-    if "risk_mode" in data and data["risk_mode"] in ("seguro","normal","agressivo"):
-        MODE_RISK = data["risk_mode"]
-    if "stop_win_pct" in data:
-        try: STOP_WIN_PCT = max(0.0, float(data["stop_win_pct"]))
-        except: pass
-    if "stop_loss_pct" in data:
-        try: STOP_LOSS_PCT = max(0.0, float(data["stop_loss_pct"]))
-        except: pass
+def apply_learning(win: bool, signal: Dict):
+    """Ajusta pesos das estratégias proporcionalmente ao acerto/erro."""
+    global strategy_weights
+    # Atualiza todos os pesos levemente na direção do acerto/erro
+    delta = EW_LEARN_RATE if win else -EW_LEARN_RATE
+    # Estratégias que votaram mais para a cor do sinal recebem mais ajuste
+    votes = signal.get("strategy_votes", {})
+    for name in strategy_weights.keys():
+        # Proxy: se a estratégia, via compute_votes, deu força à cor do sinal
+        contrib = votes.get(signal["color"], 0.0)
+        # Ruído mínimo para manter diversidade
+        jitter = (random.random() - 0.5) * 0.02
+        strategy_weights[name] = max(0.1, strategy_weights[name] + delta * (0.5 + contrib) + jitter)
+
+def evaluate_active_signal(new_result: str):
+    """Avalia o round recebido, avança gale ou encerra."""
+    global active_signal
+    s = active_signal
+    if not s or s["status"] != "running":
+        return
+
+    target = s["color"]
+    hit = (new_result == target) or (target in ("red","black") and new_result in ("red","black") and target == new_result)
+
+    # WHITE é exatamente 'white'
+    if target == "white":
+        hit = (new_result == "white")
+
+    if hit:
+        # WIN
+        s["status"] = "finished"
+        s["result"] = "WIN"
+        gain = s["stake"] * odds_for(target)
+        metrics["wins"] += 1
+        metrics["per_color"][target]["wins"] += 1
+        metrics["bank_result"] += gain
+        apply_learning(True, s)
+    else:
+        # LOSS -> tenta gale se houver
+        if s["gale_step"] < s["max_gales"]:
+            s["gale_step"] += 1
+            # mantém status "running" até finalizar todos os gales
+        else:
+            s["status"] = "finished"
+            s["result"] = "LOSS"
+            loss_total = s["stake"] * (s["gale_step"] + 1)
+            metrics["losses"] += 1
+            metrics["per_color"][target]["losses"] += 1
+            metrics["bank_result"] -= loss_total
+            apply_learning(False, s)
+
+# ========================= Endpoints =========================
+@app.post("/api/push_round")
+def push_round():
+    """
+    Body: {"result":"red|black|white"}
+    Simula ingest da rodada (ou use para repassar o resultado real).
+    Avalia sinal ativo e tenta abrir novo sinal (se possível).
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    result = (data.get("result") or "").lower().strip()
+    if result not in ("red","black","white"):
+        return jsonify({"ok": False, "error": "result must be red|black|white"}), 400
+
+    history.append(result)
+
+    # Avalia sinal vigente
+    if active_signal and active_signal.get("status") == "running":
+        evaluate_active_signal(result)
+
+    # Se não há sinal rodando, tenta abrir um novo
+    signal_info = None
+    if not active_signal or active_signal.get("status") != "running":
+        signal_info = decide_signal()
 
     return jsonify({
         "ok": True,
-        "bot_on": bot_on,
-        "mode": mode_selected,
-        "confluence_white": CONFLUENCE_MIN_WHITE,
-        "confluence_color": CONFLUENCE_MIN_COLOR,
-        "risk": SELECAO_RISCO,
-        "eval_same_spin": EVAL_SAME_SPIN,
-        "strict_one_at_a_time": STRICT_ONE_AT_A_TIME,
-        "bankroll": BANKROLL,
-        "stake_pct": STAKE_PCT_BASE,
-        "risk_mode": MODE_RISK,
-        "stop_win_pct": STOP_WIN_PCT,
-        "stop_loss_pct": STOP_LOSS_PCT
+        "accepted": result,
+        "active_signal": active_signal,
+        "maybe_new_signal": signal_info,
+        "history_tail": list(history)[-SHOW_LAST:],
+        "metrics": metrics,
+        "config": config
     })
+
+@app.get("/api/state")
+def get_state():
+    # taxa de acerto
+    wr = (metrics["wins"] / max(1, metrics["total_signals"])) if metrics["total_signals"] else 0.0
+    return jsonify({
+        "ok": True,
+        "history_tail": list(history)[-SHOW_LAST:],
+        "counts10": recent_counts(10),
+        "active_signal": active_signal,
+        "metrics": {**metrics, "winrate": round(wr, 3)},
+        "config": config,
+        "strategy_weights": strategy_weights,
+        "time": now_iso()
+    })
+
+@app.post("/api/config")
+def set_config():
+    data = request.get_json(force=True, silent=True) or {}
+    for k in ("stake","max_gales","mode","confluence_min_color","confluence_min_white","confidence_min"):
+        if k in data:
+            config[k] = data[k]
+    return jsonify({"ok": True, "config": config})
+
+@app.post("/api/reset")
+def reset_all():
+    global history, metrics, active_signal, strategy_weights
+    history = deque(maxlen=HISTORY_MAX)
+    active_signal = None
+    metrics = {
+        "total_signals": 0,
+        "wins": 0,
+        "losses": 0,
+        "bank_result": 0.0,
+        "per_color": {"red":{"signals":0,"wins":0,"losses":0},
+                      "black":{"signals":0,"wins":0,"losses":0},
+                      "white":{"signals":0,"wins":0,"losses":0}},
+    }
+    # mantém pesos, mas pode opcionalmente zerar
+    return jsonify({"ok": True, "cleared": True, "strategy_weights": strategy_weights})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="127.0.0.1", port=5001, debug=True)
