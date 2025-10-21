@@ -29,7 +29,8 @@ body{
 }
 .row{display:grid;gap:14px}
 .cols-2{grid-template-columns:2fr 1fr}
-@media (max-width:1050px){.cols-2{grid-template-columns:1fr}}
+.cols-2-50{grid-template-columns:1.2fr .8fr}
+@media (max-width:1050px){.cols-2,.cols-2-50{grid-template-columns:1fr}}
 
 .hbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:10px}
@@ -55,12 +56,20 @@ body{
 .badge-W{background:#fff;color:#111;border-color:#ddd}
 .tip-muted{color:var(--muted);font-size:12px}
 
-/* ===== GRÁFICO LINHA ===== */
-.chart-wrap{background:rgba(255,255,255,.02);border:1px solid var(--stroke);border-radius:12px;padding:10px}
+/* ===== GRÁFICO LINHA (assertividade) ===== */
 .svg{width:100%;height:260px}
 .grid line{stroke:#2a2a2f;stroke-width:1}
 .path{fill:none;stroke:url(#grad);stroke-width:2}
 .dot{r:2.5;fill:#fff}
+
+/* ===== GRÁFICO PNL ===== */
+.svg-pnl{width:100%;height:260px}
+.path-pnl{fill:none;stroke:url(#gradp);stroke-width:2}
+
+/* ===== HEATMAP ===== */
+.heat-wrap{display:grid;grid-template-columns:repeat(24,1fr);gap:4px}
+.cell{height:24px;border-radius:6px;border:1px solid var(--stroke);display:grid;place-items:center;font-size:10px;color:#d8dee9}
+.cell small{opacity:.7}
 
 /* ===== ÚLTIMOS GIROS ===== */
 .ball{min-width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-weight:900;border:1px solid var(--stroke)}
@@ -120,8 +129,8 @@ body{
     </div>
   </div>
 
-  <!-- Análise detalhada -->
-  <div class="row cols-2" style="margin-top:12px">
+  <!-- Análise detalhada 1: assertividade / últimos giros -->
+  <div class="row cols-2-50" style="margin-top:12px">
     <div class="card">
       <strong>Variação de assertividade por hora</strong>
       <svg class="svg" viewBox="0 0 800 260" id="chart">
@@ -144,6 +153,35 @@ body{
       </div>
       <div id="rolls" class="scroll"></div>
       <div style="margin-top:10px"><small style="color:var(--muted)">Dica: se o mercado ficar ruim, o painel mostra alerta “Evite operar”.</small></div>
+    </div>
+  </div>
+
+  <!-- Análise detalhada 2: PnL / Heatmap / Streaks -->
+  <div class="row cols-2" style="margin-top:12px">
+    <div class="card">
+      <strong>PNL acumulado (simulado)</strong>
+      <svg class="svg-pnl" viewBox="0 0 800 260" id="pnlChart">
+        <defs>
+          <linearGradient id="gradp" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#22c55e"/><stop offset="100%" stop-color="#f59e0b"/>
+          </linearGradient>
+        </defs>
+        <g class="grid" id="pnl-grid"></g>
+        <path class="path-pnl" id="pnl-path" d=""/>
+        <g id="pnl-dots"></g>
+      </svg>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <strong>Heatmap por hora (7 dias)</strong>
+        <div style="display:flex;gap:8px">
+          <span class="badge" id="streak-cur">Streak atual —</span>
+          <span class="badge" id="streak-max">Máx WIN/LOSS —</span>
+        </div>
+      </div>
+      <div id="heat" class="heat-wrap"></div>
+      <div style="margin-top:8px"><small style="color:var(--muted)">Quanto mais forte a cor, maior a assertividade naquela hora (amostra ≥ 1).</small></div>
     </div>
   </div>
 
@@ -216,14 +254,57 @@ function updateHealth(j){
 }
 
 function drawChart(points){
-  const svg=$('#chart'), path=$('#path'), dots=$('#dots'), grid=$('#grid');
+  const path=$('#path'), dots=$('#dots'), grid=$('#grid');
   const W=800,H=260,P=28; const xs=(i,n)=>P+(i*(W-2*P))/Math.max(1,n-1); const ys=(v)=>H-P-v*(H-2*P);
   grid.innerHTML=''; for(let i=0;i<=5;i++){const y=ys(i/5);grid.innerHTML+=`<line x1="${P}" x2="${W-P}" y1="${y}" y2="${y}"/>`;}
   if(!points||!points.length){path.setAttribute('d','');dots.innerHTML='';return;}
   const n=points.length; const d=points.map((p,i)=>`${i?'L':'M'}${xs(i,n)},${ys(p.acc)}`).join(' ');
   path.setAttribute('d',d); dots.innerHTML=points.map((p,i)=>`<circle class="dot" cx="${xs(i,n)}" cy="${ys(p.acc)}"></circle>`).join('');
 }
+
+function drawPnl(curve){
+  const path=$('#pnl-path'), dots=$('#pnl-dots'), grid=$('#pnl-grid');
+  const W=800,H=260,P=28; const xs=(i,n)=>P+(i*(W-2*P))/Math.max(1,n-1);
+  if(!curve||!curve.length){path.setAttribute('d','');dots.innerHTML='';grid.innerHTML='';return;}
+  // normaliza Y (pnl min..max)
+  let min=curve[0].pnl, max=curve[0].pnl;
+  for(const c of curve){ if(c.pnl<min)min=c.pnl; if(c.pnl>max)max=c.pnl; }
+  if(min===max){ min-=1; max+=1; }
+  const ys=(v)=>{ const t=(v-min)/(max-min); return 260-28 - t*(260-56); };
+  grid.innerHTML='';
+  for(let i=0;i<=4;i++){const y=ys(min + i*(max-min)/4);grid.innerHTML+=`<line x1="28" x2="772" y1="${y}" y2="${y}" class="grid"/>`; }
+  const n=curve.length; const d=curve.map((p,i)=>`${i?'L':'M'}${xs(i,n)},${ys(p.pnl)}`).join(' ');
+  path.setAttribute('d',d);
+  dots.innerHTML=curve.map((p,i)=>`<circle class="dot" cx="${xs(i,n)}" cy="${ys(p.pnl)}"></circle>`).join('');
+}
+
+function drawHeatmap(items){
+  const wrap=$('#heat'); wrap.innerHTML='';
+  if(!items||!items.length){wrap.textContent='Sem dados.';return;}
+  items.forEach(it=>{
+    const a=it.acc; const n=it.n; // 0..1
+    const alpha = Math.max(0.12, Math.min(0.92, a)); // intensidade
+    const bg = `linear-gradient(180deg, rgba(159,91,255,${alpha}), rgba(0,179,255,${alpha*0.75}))`;
+    const label = n>0 ? `${Math.round(a*100)}%` : '—';
+    const cell = document.createElement('div');
+    cell.className='cell';
+    cell.style.background = bg;
+    cell.innerHTML = `<small>${String(it.hour).padStart(2,'0')}h</small>`;
+    cell.title = `Hora ${it.hour}: ${label} (${n} entradas)`;
+    wrap.appendChild(cell);
+  });
+}
+
 async function loadChart(){const r=await fetch(API+'/history');const j=await r.json();if(j&&j.points)drawChart(j.points);}
+async function loadPerformance(){
+  const r=await fetch(API+'/performance'); const j=await r.json();
+  if(!j||!j.ok) return;
+  drawPnl(j.pnl_curve||[]);
+  drawHeatmap(j.hour_heatmap||[]);
+  const cur=j.streaks?.current; const mw=j.streaks?.max_win||0; const ml=j.streaks?.max_loss||0;
+  $('#streak-cur').textContent = cur?.side ? `Streak atual: ${cur.side} ${cur.len}` : 'Streak atual —';
+  $('#streak-max').textContent = `Máx: WIN ${mw} • LOSS ${ml}`;
+}
 
 async function tick(){
   try{
@@ -249,7 +330,7 @@ $('#mode-branco').onclick=()=>fetch(API+'/control',{method:'POST',headers:{'Cont
 document.getElementById('btn-start').onclick=()=>fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:true})}).then(()=>$('#state-pill').textContent='ONLINE • '+($('#mode-branco').classList.contains('active')?'BRANCO':'CORES'));
 document.getElementById('btn-stop').onclick =()=>fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:false})}).then(()=>$('#state-pill').textContent='OFFLINE • '+($('#mode-branco').classList.contains('active')?'BRANCO':'CORES'));
 
-document.addEventListener('DOMContentLoaded',()=>{tick();loadChart();});
+document.addEventListener('DOMContentLoaded',()=>{tick();loadChart();loadPerformance();});
 </script>
 </body>
 </html>
