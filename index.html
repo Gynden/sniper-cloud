@@ -28,18 +28,26 @@ body{
   backdrop-filter: blur(8px);box-shadow: var(--shadow);
 }
 .title{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px}
-.btn{background:linear-gradient(180deg,#8b5cf6,#7c3aed);border:0;color:#fff;font-weight:800;padding:10px 14px;border-radius:12px;cursor:pointer;box-shadow:0 6px 14px rgba(139,92,246,.25)}
+.btn{background:linear-gradient(180deg,#8b5cf6,#7c3aed);border:0;color:#fff;font-weight:800;padding:10px 14px;border-radius:12px;cursor:pointer;box-shadow:0 6px 14px rgba(139,92,246,.25);transition:.15s transform ease}
+.btn:hover{transform:translateY(-1px)}
 .btn.ghost{background:transparent;border:1px solid var(--stroke);color:var(--text);font-weight:700}
 .seg{display:flex;border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
 .seg button{background:transparent;color:var(--text);padding:8px 12px;border:0;cursor:pointer}
 .seg button.active{background:var(--neon);color:#0b0b13;font-weight:900}
 .row{display:grid;gap:16px}
 .g2{grid-template-columns:1.25fr 1fr}
+.g3{grid-template-columns:1.2fr .8fr 1fr}
+@media (max-width:1200px){.g3{grid-template-columns:1fr}}
 @media (max-width:1024px){.g2{grid-template-columns:1fr}}
 
 .topbar{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .summary{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .summary .pill{background:rgba(21,21,38,.7);border:1px solid var(--stroke);padding:6px 10px;border-radius:999px;font-weight:800}
+.health{display:flex;gap:8px;align-items:center}
+.health .badge{padding:6px 10px;border-radius:999px;border:1px solid var(--stroke);background:rgba(21,21,38,.7)}
+.badge.ok{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.15)}
+.badge.warn{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.15)}
+.badge.bad{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.15)}
 
 /* Painel IA */
 .neural-banner{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:stretch;
@@ -55,8 +63,9 @@ body{
 .left{display:grid;place-items:center}
 .brain{width:100%;max-width:320px;aspect-ratio:1/1;border-radius:50%;display:grid;place-items:center;position:relative}
 
-/* Anel: */
-.ring{position:absolute;inset:7.5%;border-radius:50%;
+/* Anel */
+.ring{
+  position:absolute;inset:7.5%;border-radius:50%;
   background:conic-gradient(from 90deg,#60a5fa,#a78bfa,#60a5fa,#a78bfa 98%,#60a5fa);
   -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 10px),#000 calc(100% - 10px));
           mask:radial-gradient(farthest-side,transparent calc(100% - 10px),#000 calc(100% - 10px));
@@ -73,8 +82,8 @@ body{
 .disc.white{background:linear-gradient(180deg,#fff,#e9ebef);border:1px solid #d9d9d9}
 .pct{font-size:18px;opacity:.92;font-weight:800;z-index:1;display:none}
 .pct.show{display:block}
-.await{margin-top:10px;font-size:13px;color:var(--muted);text-align:center;display:none}
-.await.show{display:block}
+.await{margin-top:10px;font-size:13px;color:var(--muted);text-align:center;display:none;opacity:0;transition:opacity .25s ease}
+.await.show{display:block;opacity:1}
 
 .right{display:grid;gap:10px}
 .item{background:rgba(21,21,38,.7);border:1px solid var(--stroke);border-radius:12px;padding:10px}
@@ -83,13 +92,22 @@ body{
 .ball{min-width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-weight:900;border:1px solid var(--stroke);box-shadow:0 6px 12px rgba(0,0,0,.25)}
 .ball.R{background:#ff2b46}.ball.B{background:#0f1117}.ball.W{background:#fff;color:#111;border-color:#ddd}
 .scroll{display:flex;gap:8px;overflow:auto;padding:6px 2px}
+
+/* Estatísticas */
+.table{width:100%;border-collapse:separate;border-spacing:0 8px}
+.table th{font-size:12px;color:var(--muted);text-align:left;padding:4px 8px}
+.table td{padding:10px 8px;background:rgba(21,21,38,.7);border:1px solid var(--stroke)}
+.table td:first-child{border-radius:10px 0 0 10px}
+.table td:last-child{border-radius:0 10px 10px 0}
+.pl-pos{color:#7ee787;font-weight:800}
+.pl-neg{color:#ff7b72;font-weight:800}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="panel">
     <div class="topbar">
-      <h1>SNIPER BLAZE — Neural Trader</h1>
+      <h1>SNIPER BLAZE</h1>
       <div class="summary">
         <span class="pill" id="state-pill">OFFLINE • —</span>
         <div class="seg">
@@ -99,10 +117,15 @@ body{
         <button type="button" class="btn" id="btn-start">Iniciar</button>
         <button type="button" class="btn ghost" id="btn-stop">Parar</button>
       </div>
+      <div class="health">
+        <span id="data-src" class="badge">Fonte: —</span>
+        <span id="lat-badge" class="badge">Latência —</span>
+        <span id="live-badge" class="badge">Live —</span>
+      </div>
     </div>
   </div>
 
-  <div class="row g2" style="margin-top:14px">
+  <div class="row g3" style="margin-top:14px">
     <div class="panel">
       <div class="neural-banner">
         <div class="left">
@@ -133,18 +156,29 @@ body{
       <div class="title"><strong>Últimos giros</strong></div>
       <div id="rolls" class="scroll"></div>
     </div>
+
+    <div class="panel">
+      <div class="title"><strong>Estatísticas por estratégia</strong></div>
+      <table class="table" id="stat-table">
+        <thead><tr>
+          <th>Estratégia</th><th>Entradas</th><th>WIN</th><th>LOSS</th><th>Assert.</th><th>P/L (sim.)</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
 <script>
 const API=location.origin;const $=s=>document.querySelector(s);
 let lastHistLen=0,lastSpinAt=Date.now(),spinMs=12000,hadOpen=false,lastMode='CORES';
-setInterval(()=>{const el=$('#round-timer');if(!el)return;const now=Date.now(),remain=Math.max(0,lastSpinAt+spinMs-now);const sec=Math.ceil(remain/1000),mm=Math.floor(sec/60),ss=(sec%60).toString().padStart(2,'0');el.textContent=`${mm}:${ss}`;},200);
+
+setInterval(()=>{const el=$('#round-timer');if(!el)return;const now=Date.now(),remain=Math.max(0,lastSpinAt+spinMs-now);const sec=Math.ceil(remain/1000),mm=Math.floor(sec/60),ss=(sec%60).toString().padStart(2,'0');el.textContent=`${mm}:${ss}`;},250);
 
 function setActiveModeButton(m){const c=$('#mode-cores'),b=$('#mode-branco');if(m==='CORES'){c.classList.add('active');b.classList.remove('active');}else{b.classList.add('active');c.classList.remove('active');}lastMode=m;}
 $('#mode-cores').onclick=()=>fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'CORES'})}).then(()=>setActiveModeButton('CORES'));
 $('#mode-branco').onclick=()=>fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'BRANCO'})}).then(()=>setActiveModeButton('BRANCO'));
-$('#btn-start').onclick=()=>fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:true})}).then(()=>$('#state-pill').textContent='ONLINE • '+lastMode);
+$('#btn-start').onclick=()=>{ notifyAsk(); fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:true})}).then(()=>$('#state-pill').textContent='ONLINE • '+lastMode)); };
 $('#btn-stop').onclick=()=>fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:false})}).then(()=>hardResetUI('OFFLINE • '+lastMode));
 
 function ball(n){if(n===0)return`<div class="ball W">0</div>`;const c=(n>=1&&n<=7)?'R':'B';return`<div class="ball ${c}">${n}</div>`;}
@@ -160,20 +194,92 @@ function resetSignalUI(){const d=$('#tgt-disc');d.className='disc';$('#banner-pc
 function hardResetUI(txt){resetSignalUI();$('#state-pill').textContent=txt??$('#state-pill').textContent;}
 
 function setBannerFrom(o,p){if(!o){resetSignalUI();return;}showAwait(false);const t=o.target,pct=Number(p?.rec?.p||0);setTargetVisual(t);$('#banner-pct').textContent=`${Math.round(pct*10)/10}%`;showPct(true);$('#meta-conf').textContent=o.confluence??'—';const estr=open_trade_type(o)==='white'?'Estratégia 1':open_trade_type(o)==='color'?'Estratégia 2':'—';$('#meta-strategy').textContent=estr;setGalesMax(o);}
-function setPhase(o,p){const r=$('#ring');if(!o){resetSignalUI();return;}showAwait(false);if(o.phase==='analyzing'){r.className='ring ring--spin';$('#meta-rec').textContent=`Analisando • ${Math.round((p?.rec?.p||0)*10)/10}%`;return;}const g=o.step||0,m=o.max_gales||0;setGalesMax(o);if(g===0){r.className='ring ring--open';$('#meta-rec').textContent=`Sinal ativo • G0 (até ${m})`;}else{r.className='ring ring--gale';$('#meta-rec').textContent=`Sinal ativo • GALE ${g}/${m}`;}}
+function setPhase(o,p){const r=$('#ring');if(!o){resetSignalUI();return;}showAwait(false);if(o.phase==='analyzing'){r.className='ring ring--spin';$('#meta-rec').textContent=`Analisando • ${Math.round((p?.rec?.p||0)*10)/10}%`;return;}const g=o.step||0,m=o.max_gales||0;setGalesMax(o);if(g===0){r.className='ring ring--open';$('#meta-rec').textContent=`Sinal ativo • G0 (até ${m})`;notify('GO','Sinal ativo');beep(880,90);}else{r.className='ring ring--gale';$('#meta-rec').textContent=`Sinal ativo • GALE ${g}/${m}`;notify('GALE','Atenção: GALE '+g);beep(660,120);}}
+
+function updateHealth(j){
+  $('#data-src').textContent = `Fonte: ${j.data_source||'—'}`;
+  const lat = (j.latency_ms!=null)? `${j.latency_ms} ms` : '—';
+  const sec = (j.seconds_since_last!=null)? `${j.seconds_since_last.toFixed(1)}s` : '—';
+  const lb = $('#lat-badge'); lb.textContent = `Latência ${lat} • Último ${sec}`;
+  const live = $('#live-badge');
+  live.textContent = j.live_ok? 'Live OK' : 'Atraso na fonte';
+  live.className = 'badge ' + (j.live_ok ? 'ok' : 'warn');
+}
+
+function renderStats(stats){
+  const tb = $('#stat-table tbody');
+  const rows = Object.entries(stats).map(([name,v])=>{
+    const plClass = (v.pl_sim>=0)?'pl-pos':'pl-neg';
+    return `<tr>
+      <td>${name}</td>
+      <td>${v.entries}</td>
+      <td>${v.win}</td>
+      <td>${v.loss}</td>
+      <td>${v.assert}%</td>
+      <td class="${plClass}">${v.pl_sim}</td>
+    </tr>`;
+  }).join('');
+  tb.innerHTML = rows || `<tr><td colspan="6" style="color:var(--muted);text-align:center">Sem dados ainda</td></tr>`;
+}
 
 function clearOnFirstLoad(){$('#rolls').innerHTML='';resetSignalUI();}
-async function tick(){try{const r=await fetch(API+'/state');const j=await r.json();$('#state-pill').textContent=`${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`;setActiveModeButton(j.mode);
-const seq=j.last_50||[];$('#rolls').innerHTML=seq.slice(-14).map(n=>ball(n)).join('');
-if(seq.length>lastHistLen){const now=Date.now(),dt=now-lastSpinAt;if(dt>1000&&dt<40000){spinMs=0.7*spinMs+0.3*dt;}lastSpinAt=now;lastHistLen=seq.length;}
-const currOpen=!!j.open_trade;
-if(hadOpen&&!currOpen){hardResetUI(`${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`);}
-hadOpen=currOpen;
-if(!j.bot_on){hardResetUI(`OFFLINE • ${j.mode}`);return setTimeout(tick,900);}
-const p={rec:{tgt:j.probs.rec.tgt,p:j.probs.rec.p}};
-if(j.open_trade){setBannerFrom(j.open_trade,p);setPhase(j.open_trade,p);const q=computeQuality(j.open_trade,p);setQualityBadge(q);}else{resetSignalUI();}
-}catch(e){console.error(e);$('#state-pill').textContent='OFFLINE • —';resetSignalUI();}finally{setTimeout(tick,900);}}
-clearOnFirstLoad();tick();
+function ballStrip(seq){return seq.slice(-14).map(n=>ball(n)).join('');}
+
+async function tick(){
+  try{
+    const r=await fetch(API+'/state'); const j=await r.json();
+    $('#state-pill').textContent=`${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`;
+    setActiveModeButton(j.mode);
+    updateHealth(j);
+    renderStats(j.strategy_stats||{});
+
+    // giros + tempo estimado
+    const seq=j.last_50||[]; $('#rolls').innerHTML=ballStrip(seq);
+    if(seq.length>lastHistLen){const now=Date.now();const dt=now-lastSpinAt;if(dt>1000&&dt<40000){spinMs=0.7*spinMs+0.3*dt;}lastSpinAt=now;lastHistLen=seq.length;}
+
+    const currOpen=!!j.open_trade;
+    if(hadOpen && !currOpen){ hardResetUI(`${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`); notify('END','Rodada finalizada'); }
+    hadOpen=currOpen;
+
+    if(!j.bot_on){ hardResetUI(`OFFLINE • ${j.mode}`); return setTimeout(tick,900); }
+
+    const p={rec:{tgt:j.probs.rec.tgt,p:j.probs.rec.p}};
+    if(j.open_trade){
+      setBannerFrom(j.open_trade,p);
+      setPhase(j.open_trade,p);
+      const q=computeQuality(j.open_trade,p); setQualityBadge(q);
+      if(j.signals && j.signals[0]?.status==='ANALYZING'){ notify('PRE','Pré-sinal'); beep(520,80); }
+      // WIN/LOSS alertas (checa topo do log)
+      const last = j.signals && j.signals[0];
+      if(last?.status==='WIN'){ notify('WIN','Sinal WIN'); beep(1200,120); }
+      if(last?.status==='LOSS'){ notify('LOSS','Sinal LOSS'); beep(400,160); }
+    }else{
+      resetSignalUI();
+    }
+  }catch(e){
+    console.error(e); $('#state-pill').textContent='OFFLINE • —'; resetSignalUI();
+  }finally{
+    setTimeout(tick,900);
+  }
+}
+
+function notifyAsk(){ if("Notification" in window && Notification.permission==="default"){ Notification.requestPermission(); } }
+function notify(title, body){
+  if(!("Notification" in window)) return;
+  if(Notification.permission==="granted"){ new Notification(`SNIPER • ${title}`, { body }); }
+}
+function beep(freq=880, dur=90){
+  try{
+    const ac = new (window.AudioContext||window.webkitAudioContext)();
+    const o=ac.createOscillator(), g=ac.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    o.connect(g); g.connect(ac.destination);
+    g.gain.value=0.02; o.start();
+    setTimeout(()=>{o.stop();ac.close()}, dur);
+  }catch{}
+}
+
+clearOnFirstLoad(); tick();
 </script>
 </body>
 </html>
