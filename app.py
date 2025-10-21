@@ -24,6 +24,9 @@ SELECAO_RISCO = "conservador"  # "conservador" | "agressivo"
 # False => avalia no PRÓXIMO giro (padrão). True => avalia no MESMO giro.
 EVAL_SAME_SPIN = False
 
+# NOVO: Regra dura de 1-sinal-por-vez-até-acabar-os-GALES
+STRICT_ONE_AT_A_TIME = True  # deixa explícito para debug/visibilidade
+
 # ========================= Estado em memória =========================
 history = deque(maxlen=HISTORY_MAX)      # números 0..14 (0 = branco)
 signals = deque(maxlen=300)              # sinais/logs
@@ -368,10 +371,21 @@ def append_signal_entry(mode, target, step, status="open", came=None,
     })
 
 # ========================= Motor (com fases + travas) ================
+def trade_lock_active():
+    """
+    Trava explícita: se STRICT_ONE_AT_A_TIME estiver True,
+    considera travado se existe open_trade em qualquer fase,
+    inclusive enquanto GALES não terminaram.
+    """
+    if not STRICT_ONE_AT_A_TIME:
+        return False
+    return open_trade is not None
+
 def try_open_trade_if_needed():
     """Cria pré-sinal (phase='analyzing') e NUNCA abre cor no modo BRANCO."""
     global open_trade, cool_color, cool_white
-    if open_trade or not bot_on: return
+    if trade_lock_active() or not bot_on:
+        return
     seq = list(history)
     if not seq: return
 
@@ -399,8 +413,6 @@ def try_open_trade_if_needed():
             }
             append_signal_entry("CORES",tgt,0,status="ANALYZING",
                                 strategy=rep["name"],max_gales=rep["max_gales"],conf=conf,phase="analyzing")
-    else:
-        return
 
 def process_new_number(n):
     """Gerencia fases: analyzing -> open -> (win/gale/loss) e respeita modo ativo."""
@@ -489,6 +501,11 @@ def index():
 def state():
     seq = list(history)
     probs = estimate_probs(seq) if seq else {"W":0.066,"R":0.467,"B":0.467,"rec":("B",0.467)}
+    # NOVO: status da trava para a UI
+    lock_reason = None
+    if STRICT_ONE_AT_A_TIME and open_trade is not None:
+        lock_reason = "Aguardando terminar GALES do sinal atual"
+
     out = {
         "ok": True,
         "bot_on": bot_on,
@@ -508,7 +525,9 @@ def state():
             "color_min": CONFLUENCE_MIN_COLOR,
             "selecao_risco": SELECAO_RISCO
         },
-        "eval_same_spin": EVAL_SAME_SPIN
+        "eval_same_spin": EVAL_SAME_SPIN,
+        "strict_one_at_a_time": STRICT_ONE_AT_A_TIME,
+        "lock_reason": lock_reason
     }
     return jsonify(out)
 
@@ -524,11 +543,14 @@ def ingest():
     else:
         # Mesmo sem números novos, fazemos um "tick" de cooldown leve
         tick_cooldowns()
+        # E tentamos abrir apenas se NÃO estiver travado por GALES (explícito)
+        if not trade_lock_active():
+            try_open_trade_if_needed()
     return jsonify({"ok": True, "added": added, "time": datetime.now().isoformat()})
 
 @app.route("/control", methods=["POST"])
 def control():
-    global bot_on, mode_selected, open_trade, cool_color, cool_white, EVAL_SAME_SPIN
+    global bot_on, mode_selected, open_trade, cool_color, cool_white, EVAL_SAME_SPIN, STRICT_ONE_AT_A_TIME
     data = request.get_json(silent=True) or {}
 
     if "bot_on" in data:
@@ -561,6 +583,10 @@ def control():
     if "eval_same_spin" in data:
         EVAL_SAME_SPIN = bool(data["eval_same_spin"])
 
+    # NOVO: permitir ligar/desligar a trava explícita via API (se quiser testar)
+    if "strict_one_at_a_time" in data:
+        STRICT_ONE_AT_A_TIME = bool(data["strict_one_at_a_time"])
+
     return jsonify({
         "ok": True,
         "bot_on": bot_on,
@@ -568,7 +594,8 @@ def control():
         "confluence_white": CONFLUENCE_MIN_WHITE,
         "confluence_color": CONFLUENCE_MIN_COLOR,
         "risk": SELECAO_RISCO,
-        "eval_same_spin": EVAL_SAME_SPIN
+        "eval_same_spin": EVAL_SAME_SPIN,
+        "strict_one_at_a_time": STRICT_ONE_AT_A_TIME
     })
 
 # ========================= Boot =====================================
