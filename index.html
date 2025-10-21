@@ -42,7 +42,7 @@ body{
 .seg button.active{background:var(--acc);color:#0d0d0f;font-weight:900}
 
 /* ===== VISÃO RÁPIDA ===== */
-.quick{display:grid;gap:10px;grid-template-columns:repeat(6,1fr)}
+.quick{display:grid;gap:10px;grid-template-columns:repeat(8,1fr)}
 .quick .q{background:rgba(255,255,255,.02);border:1px solid var(--stroke);border-radius:12px;padding:10px}
 .quick .title{font-size:12px;color:var(--muted);margin:0 0 4px 0}
 .quick .val{font-weight:900;font-size:18px}
@@ -114,6 +114,8 @@ body{
             <span id="q-entry-tip" class="tip-muted"></span>
           </div>
         </div>
+        <div class="q"><div class="title">Stake sugerida</div><div class="val" id="q-stake">—</div></div>
+        <div class="q"><div class="title">Coach</div><div class="val" id="q-coach" style="font-size:14px;line-height:1.3">—</div></div>
       </div>
     </div>
   </div>
@@ -164,23 +166,89 @@ body{
 <script>
 const API=(localStorage.getItem('API_BASE')||location.origin).replace(/\/+$/,'');
 const $=s=>document.querySelector(s);
+
 function ball(n){if(n===0)return`<div class="ball W">0</div>`;const c=(n>=1&&n<=7)?'R':'B';return`<div class="ball ${c}">${n}</div>`;}
 function ballStrip(seq){return(seq||[]).slice(-20).map(n=>ball(n)).join('');}
 function setActiveModeButton(m){const c=$('#mode-cores'),b=$('#mode-branco');if(m==='CORES'){c.classList.add('active');b.classList.remove('active');}else{b.classList.add('active');c.classList.remove('active');}}
 function setEntryBadge(tgt,text){const el=$('#q-entry');el.className='badge-entry';if(!tgt){el.textContent=text||'—';return;}const map={R:'Vermelho',B:'Preto',W:'Branco'};el.textContent=text||map[tgt];el.classList.add('badge-'+tgt);}
 function labelFromTarget(tgt){return({R:'Vermelho',B:'Preto',W:'Branco'})[tgt]||'—';}
 function renderStats(stats){const tb=$('#stat-table tbody');const rows=Object.entries(stats||{}).map(([n,v])=>{const plClass=(v.pl_sim>=0)?'pl-pos':'pl-neg';return`<tr><td>${n}</td><td>${v.entries}</td><td>${v.win}</td><td>${v.loss}</td><td>${v.assert}%</td><td class="${plClass}">${v.pl_sim}</td></tr>`;}).join('');tb.innerHTML=rows||`<tr><td colspan="6" style="color:var(--muted);text-align:center">Sem dados ainda</td></tr>`;}
-function updateQuick(j){$('#q-mode').textContent=j.mode||'—';$('#q-acc').textContent=j.winrate_60!=null?(j.winrate_60*100).toFixed(1)+'%':'—%';const rec=j.probs?.rec;const pr=rec?`${rec.tgt} ${rec.p}%`:'—';$('#q-probs').textContent=pr;const mktBad=!!j.market_bad;$('#q-mkt').textContent=mktBad?'Ruim':'OK';$('#q-rec').textContent=mktBad?'Evite operar':'Operar com cautela';const tip=$('#q-entry-tip');if(j.open_trade){const t=j.open_trade.target;const g=j.open_trade.step||0;const m=j.open_trade.max_gales||0;const phase=j.open_trade.phase||'';const txt=`${labelFromTarget(t)} • ${phase==='open'?(g===0?'G0':`GALE ${g}/${m}`):'analisando'}`;setEntryBadge(t,txt);tip.textContent='';}else{const t=rec?.tgt;const p=Number(rec?.p||0);const confOk=p>=55;if(mktBad){setEntryBadge(null,'Aguardar');tip.textContent='Mercado irregular no momento.';}else if(t&&confOk){setEntryBadge(t,`${labelFromTarget(t)} • ${p}%`);tip.textContent='Recomendação da IA.';}else if(t){setEntryBadge(null,'Aguardar');tip.textContent=`Confiança baixa (${p}%).`;}else{setEntryBadge(null,'—');tip.textContent='';}}}
-function updateHealth(j){const lat=(j.latency_ms!=null)?`${j.latency_ms}ms`:'—';const sec=(j.seconds_since_last!=null)?`${j.seconds_since_last.toFixed(1)}s`:'—';$('#live-badge').textContent=j.live_ok?'Live OK':'Atraso';$('#lat-badge').textContent=`Latência ${lat} • Último ${sec}`;$('#data-src').textContent=`Fonte: ${j.data_source||'—'}`;}
-function drawChart(points){const svg=$('#chart'),path=$('#path'),dots=$('#dots'),grid=$('#grid');const W=800,H=260,P=28;const xs=(i,n)=>P+(i*(W-2*P))/Math.max(1,n-1);const ys=(v)=>H-P-v*(H-2*P);grid.innerHTML='';for(let i=0;i<=5;i++){const y=ys(i/5);grid.innerHTML+=`<line x1="${P}" x2="${W-P}" y1="${y}" y2="${y}"/>`;}if(!points||!points.length){path.setAttribute('d','');dots.innerHTML='';return;}const n=points.length;const d=points.map((p,i)=>`${i?'L':'M'}${xs(i,n)},${ys(p.acc)}`).join(' ');path.setAttribute('d',d);dots.innerHTML=points.map((p,i)=>`<circle class="dot" cx="${xs(i,n)}" cy="${ys(p.acc)}"></circle>`).join('');}
+
+function updateQuick(j){
+  $('#q-mode').textContent=j.mode||'—';
+  $('#q-acc').textContent=j.winrate_60!=null?(j.winrate_60*100).toFixed(1)+'%':'—%';
+
+  const rec=j.probs?.rec; const pr=rec?`${rec.tgt} ${rec.p}%`:'—';
+  $('#q-probs').textContent=pr;
+
+  const mktBad=!!j.market_bad;
+  $('#q-mkt').textContent=mktBad?'Ruim':'OK';
+  $('#q-rec').textContent=j.autopause?'Pausado — revisar mercado':(mktBad?'Evite operar':'Operar com cautela');
+
+  // Entrada agora
+  const tip=$('#q-entry-tip');
+  if(j.open_trade){
+    const t=j.open_trade.target, g=j.open_trade.step||0, m=j.open_trade.max_gales||0, ph=j.open_trade.phase||'';
+    const txt=`${labelFromTarget(t)} • ${ph==='open'?(g===0?'G0':`GALE ${g}/${m}`):'analisando'}`;
+    setEntryBadge(t,txt); tip.textContent='';
+  }else{
+    const t=rec?.tgt; const p=Number(rec?.p||0); const confOk=p>=55;
+    if(j.autopause){ setEntryBadge(null,'Aguardar'); tip.textContent='Autopause ativo.'; }
+    else if(t&&confOk){ setEntryBadge(t,`${labelFromTarget(t)} • ${p}%`); tip.textContent='Recomendação da IA.'; }
+    else if(t){ setEntryBadge(null,'Aguardar'); tip.textContent=`Confiança baixa (${p}%).`; }
+    else{ setEntryBadge(null,'—'); tip.textContent=''; }
+  }
+
+  // stake & coach
+  const stk=j.stake_suggested;
+  $('#q-stake').textContent = stk ? `R$ ${stk.value} • ${stk.mode}` : '—';
+  $('#q-coach').textContent = j.coach || '—';
+}
+
+function updateHealth(j){
+  const lat=(j.latency_ms!=null)?`${j.latency_ms}ms`:'—';
+  const sec=(j.seconds_since_last!=null)?`${j.seconds_since_last.toFixed(1)}s`:'—';
+  $('#live-badge').textContent=j.live_ok?'Live OK':'Atraso';
+  $('#lat-badge').textContent=`Latência ${lat} • Último ${sec}`;
+  $('#data-src').textContent=`Fonte: ${j.data_source||'—'}`;
+  if(j.autopause){ $('#state-pill').style.background='rgba(245,158,11,.18)'; }
+  else{ $('#state-pill').style.background='rgba(255,255,255,.02)'; }
+}
+
+function drawChart(points){
+  const svg=$('#chart'), path=$('#path'), dots=$('#dots'), grid=$('#grid');
+  const W=800,H=260,P=28; const xs=(i,n)=>P+(i*(W-2*P))/Math.max(1,n-1); const ys=(v)=>H-P-v*(H-2*P);
+  grid.innerHTML=''; for(let i=0;i<=5;i++){const y=ys(i/5);grid.innerHTML+=`<line x1="${P}" x2="${W-P}" y1="${y}" y2="${y}"/>`;}
+  if(!points||!points.length){path.setAttribute('d','');dots.innerHTML='';return;}
+  const n=points.length; const d=points.map((p,i)=>`${i?'L':'M'}${xs(i,n)},${ys(p.acc)}`).join(' ');
+  path.setAttribute('d',d); dots.innerHTML=points.map((p,i)=>`<circle class="dot" cx="${xs(i,n)}" cy="${ys(p.acc)}"></circle>`).join('');
+}
 async function loadChart(){const r=await fetch(API+'/history');const j=await r.json();if(j&&j.points)drawChart(j.points);}
-async function tick(){try{const r=await fetch(API+'/state');const j=await r.json();$('#state-pill').textContent=`${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`;setActiveModeButton(j.mode);updateHealth(j);updateQuick(j);renderStats(j.strategy_stats||{});$('#rolls').innerHTML=ballStrip(j.last_50||[]);}catch(e){console.error(e);$('#state-pill').textContent='OFFLINE • —';}finally{setTimeout(tick,1000);}}
+
+async function tick(){
+  try{
+    const r=await fetch(API+'/state'); const j=await r.json();
+    $('#state-pill').textContent=`${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`;
+    setActiveModeButton(j.mode);
+    updateHealth(j);
+    updateQuick(j);
+    renderStats(j.strategy_stats||{});
+    $('#rolls').innerHTML=ballStrip(j.last_50||[]);
+  }catch(e){
+    console.error(e);
+    $('#state-pill').textContent='OFFLINE • —';
+  }finally{
+    setTimeout(tick,1000);
+  }
+}
+
 document.getElementById('btn-api').onclick=()=>{const cur=localStorage.getItem('API_BASE')||location.origin;const val=prompt('URL do backend (ex: http://127.0.0.1:5000)',cur);if(!val)return;localStorage.setItem('API_BASE',val.replace(/\/+$/,''));location.reload();};
 document.getElementById('btn-report').onclick=()=>window.open(API+'/report','_blank');
 $('#mode-cores').onclick=()=>fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'CORES'})}).then(()=>setActiveModeButton('CORES'));
 $('#mode-branco').onclick=()=>fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'BRANCO'})}).then(()=>setActiveModeButton('BRANCO'));
 document.getElementById('btn-start').onclick=()=>fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:true})}).then(()=>$('#state-pill').textContent='ONLINE • '+($('#mode-branco').classList.contains('active')?'BRANCO':'CORES'));
 document.getElementById('btn-stop').onclick =()=>fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:false})}).then(()=>$('#state-pill').textContent='OFFLINE • '+($('#mode-branco').classList.contains('active')?'BRANCO':'CORES'));
+
 document.addEventListener('DOMContentLoaded',()=>{tick();loadChart();});
 </script>
 </body>
