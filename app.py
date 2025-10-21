@@ -1,5 +1,4 @@
 # app.py — SPECTRA X (IA de Sinais) - painel Spectra minimalista
-# Sem dependências externas (sem numpy / sklearn).
 import time, math
 from collections import deque, defaultdict
 from datetime import datetime, timezone, timedelta
@@ -16,20 +15,20 @@ CONFLUENCE_MIN_COLOR = 1
 SELECAO_RISCO = "conservador"      # "conservador" | "agressivo"
 EVAL_SAME_SPIN = False
 STRICT_ONE_AT_A_TIME = True
-DATA_SOURCE = "tipminer"           # apenas informativo
+DATA_SOURCE = "tipminer"
 
 # ===== Gerenciamento de banca / sessão =====
-BANKROLL          = 100.0     # banca simulada (pode vir do client via /control)
-STAKE_PCT_BASE    = 0.02      # 2% base
+BANKROLL          = 100.0
+STAKE_PCT_BASE    = 0.02
 MODE_RISK         = "normal"  # "seguro" | "normal" | "agressivo"
 
-STOP_WIN_PCT      = 0.05      # +5% encerra sessão
-STOP_LOSS_PCT     = 0.05      # -5% pausa sessão
+STOP_WIN_PCT      = 0.05
+STOP_LOSS_PCT     = 0.05
 
-CONF_GOOD         = 0.60      # >= 60% entra normal
-CONF_OK           = 0.55      # 55–60% entra meia stake
-WR_BAD            = 0.48      # winrate(60) < 0.48 => mercado ruim
-WR_GOOD_RESUME    = 0.55      # retoma após > 0.55
+CONF_GOOD         = 0.60
+CONF_OK           = 0.55
+WR_BAD            = 0.48
+WR_GOOD_RESUME    = 0.55
 
 # ========================= Estado =========================
 history = deque(maxlen=HISTORY_MAX)   # roleta (0..14)
@@ -334,8 +333,7 @@ def try_open_trade_if_needed():
                             phase="analyzing", trade_id=trade_counter)
 
 def process_new_number(n):
-    """Processa giro novo e resolve trade aberto. Inclui checagem defensiva
-       para nunca marcar WIN quando veio cor diferente do alvo."""
+    """Processa giro novo e resolve trade aberto."""
     global open_trade, cool_color, cool_white
 
     tick_cooldowns()
@@ -371,9 +369,8 @@ def process_new_number(n):
         if len(history) < open_trade["opened_at"]:
             return
 
-    tgt  = open_trade["target"]          # 'R' | 'B' | 'W'
-    came = color_code(n)                 # 'R' | 'B' | 'W'
-    # Regras de acerto (branco só acerta W; cores só se cor igual)
+    tgt  = open_trade["target"]
+    came = color_code(n)
     accurate_hit = (came == tgt) and (came in ("R","B") if tgt in ("R","B") else (came=="W"))
 
     if accurate_hit:
@@ -388,9 +385,7 @@ def process_new_number(n):
         else:                           cool_color = 2
         open_trade = None
     else:
-        # GALE ou LOSS
         if open_trade["step"] >= open_trade["max_gales"]:
-            # Defensivo: nunca marcar WIN se veio cor diferente
             append_signal_entry(
                 "BRANCO" if open_trade["type"]=="white" else "CORES",
                 tgt, open_trade["step"], status="LOSS", came=n,
@@ -444,7 +439,6 @@ def state():
     stop_hit = "win" if hit_win else ("loss" if hit_loss else None)
     autopause = market_bad or bool(stop_hit)
 
-    # confiança em %
     conf_pct = round(100*probs["rec"][1], 1) if isinstance(probs["rec"], tuple) else probs["rec"]["p"]
     stake_value, stake_mode = suggest_stake(conf_pct, autopause)
 
@@ -516,6 +510,72 @@ def history_api():
     kind = request.args.get("kind") or None
     points = hourly_assertivity(last_hours=max(1,min(168,hours)), kind_filter=kind if kind in ("CORES","BRANCO") else None)
     return jsonify({"ok": True, "points": points})
+
+# ===== NOVO: endpoint de performance (PnL, streaks, heatmap) =====
+@app.route("/performance")
+def performance():
+    # PnL acumulado por ordem cronológica (unidades +1/-1)
+    curve = []
+    cum = 0
+    # signals é appendleft(); para cronologia, iteramos do fim para o começo
+    for s in reversed(signals):
+        if s.get("status") not in ("WIN","LOSS"): continue
+        ts = s.get("iso_ts") or now_iso_utc()
+        if s["status"] == "WIN":  cum += 1
+        else:                     cum -= 1
+        curve.append({"t": ts, "pnl": cum})
+
+    # Streaks (atual e máximos)
+    cur_streak = {"side": None, "len": 0}
+    max_win = 0; max_loss = 0
+    # calcular máximos
+    run = 0; side = None
+    for s in reversed(signals):
+        if s.get("status") not in ("WIN","LOSS"): continue
+        this = 1 if s["status"]=="WIN" else -1
+        if side is None or (this>0 and side>0) or (this<0 and side<0):
+            run += 1; side = this
+        else:
+            if side>0: max_win = max(max_win, run)
+            else:      max_loss = max(max_loss, run)
+            run = 1; side = this
+    if side is not None:
+        if side>0: max_win = max(max_win, run)
+        else:      max_loss = max(max_loss, run)
+
+    # streak atual (olhando da esquerda — mais recente primeiro)
+    run = 0; side = None
+    for s in signals:
+        if s.get("status") not in ("WIN","LOSS"): continue
+        this = 1 if s["status"]=="WIN" else -1
+        if side is None: side = this
+        if (this>0 and side>0) or (this<0 and side<0):
+            run += 1
+        else:
+            break
+    if side is not None:
+        cur_streak["side"] = "WIN" if side>0 else "LOSS"
+        cur_streak["len"]  = run
+
+    # Heatmap por hora (últimos 7 dias)
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=7)
+    buckets = {h: {"win":0,"tot":0} for h in range(24)}
+    for s in signals:
+        if s.get("status") not in ("WIN","LOSS"): continue
+        try: ts = datetime.fromisoformat(s["iso_ts"])
+        except: continue
+        if ts.tzinfo is None: ts = ts.replace(tzinfo=timezone.utc)
+        if ts < cutoff: continue
+        h = ts.hour
+        buckets[h]["tot"] += 1
+        if s["status"]=="WIN": buckets[h]["win"] += 1
+    heat = []
+    for h in range(24):
+        w=buckets[h]["win"]; t=buckets[h]["tot"]; acc = (w/max(1,t))
+        heat.append({"hour": h, "acc": round(acc,4), "n": t})
+
+    return jsonify({"ok": True, "pnl_curve": curve, "streaks": {"current": cur_streak, "max_win": max_win, "max_loss": max_loss}, "hour_heatmap": heat})
 
 @app.route("/report")
 def report():
