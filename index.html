@@ -3,61 +3,129 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Spectra X — Neural Hybrid Console</title>
+<title>Spectra X — Neural Trader (Classic)</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#f6f7f9; --panel:#ffffff; --card:#ffffff; --stroke:#e7e9ee;
-    --text:#1d2228; --muted:#707888;
-    --accent1:#12c2b0; --accent2:#ff7a59;
-    --ok:#17b26a; --warn:#eab308; --bad:#ef4444;
-    --shadow: 0 8px 24px rgba(22,30,50,.08); --radius: 18px;
+    /* Paleta clássica (dark + roxo #9f5bff) */
+    --bg:#0b0b13; --panel:#111122; --card:#151527; --stroke:#23243a;
+    --text:#eef2ff; --muted:#9aa3b2;
+    --neon:#9f5bff; --neon2:#00b3ff;
+    --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --chip:#151536;
+    --radius:16px; --shadow:0 10px 30px rgba(0,0,0,.35);
   }
   *{box-sizing:border-box} html,body{height:100%}
   body{
     margin:0; font-family:Inter,system-ui,Segoe UI,Arial; color:var(--text);
-    background: radial-gradient(1200px 800px at 10% -10%, #e9fbff 0%, transparent 40%),
-                radial-gradient(1400px 900px at 110% 10%, #fff1ec 0%, transparent 35%),
-                var(--bg);
+    background:
+      radial-gradient(1000px 500px at -10% -20%, rgba(159,91,255,.15), transparent 60%),
+      radial-gradient(900px 600px at 110% -10%, rgba(0,179,255,.12), transparent 50%),
+      var(--bg);
   }
-  .wrap{max-width:1200px;margin:24px auto;padding:0 16px;}
-  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
-  .brand{display:flex;align-items:center;gap:12px;}
-  .logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--accent1),var(--accent2));box-shadow:0 6px 16px rgba(18,194,176,.25)}
-  .brand h1{font-size:20px;margin:0}
-  .status-bar{background:var(--panel);border:1px solid var(--stroke);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-  .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:14px;border:1px solid var(--stroke);background:#fff}
-  .chip .dot{width:8px;height:8px;border-radius:50%}.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.bad{background:var(--bad)}
-  main{display:grid;gap:16px;grid-template-columns: 1.2fr 1fr}
+  .wrap{max-width:1200px;margin:28px auto;padding:0 16px}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{
+    width:42px;height:42px;border-radius:12px;
+    background:conic-gradient(from 210deg at 50% 50%, var(--neon), var(--neon2), var(--neon));
+    box-shadow:0 6px 18px rgba(159,91,255,.35), inset 0 0 12px rgba(0,0,0,.4);
+  }
+  .brand h1{font-size:20px;margin:0;font-weight:800;letter-spacing:.2px}
+  .status-bar{
+    display:flex;gap:10px;flex-wrap:wrap;align-items:center
+  }
+  .chip{
+    background:linear-gradient(180deg, #171a2b, #0f1120);
+    border:1px solid var(--stroke); border-radius:999px; padding:8px 12px; display:inline-flex; gap:8px; align-items:center;
+    color:#d6dbff; box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
+  }
+  .chip .dot{width:8px;height:8px;border-radius:50%}
+  .dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)}
+
+  main{display:grid;gap:16px;grid-template-columns:1.2fr 1fr}
   @media (max-width:980px){ main{grid-template-columns:1fr} }
-  .card{background:var(--card);border:1px solid var(--stroke);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
-  .card h2{font-size:16px;margin:0 0 12px 0}
-  .row{display:flex;gap:12px;flex-wrap:wrap}.col{flex:1 1 260px}
-  .grid{display:grid;gap:10px;grid-template-columns:repeat(10,1fr);border-radius:14px;border:1px dashed var(--stroke);padding:10px;background:#fafbfc}
-  .ball{height:32px;border-radius:10px;border:1px solid var(--stroke);display:flex;align-items:center;justify-content:center;font-weight:700;background:#fff}
-  .b-red{color:#c03221;background:linear-gradient(#fff,#ffeceb)}
-  .b-black{color:#111;background:linear-gradient(#fff,#f1f1f1)}
-  .b-white{color:#12c2b0;border:2px solid #12c2b0;background:#f7fffe}
-  .progress{height:10px;background:#eef1f5;border-radius:999px;overflow:hidden;border:1px solid var(--stroke)}
-  .progress > i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--accent1),var(--accent2))}
+
+  .card{
+    background:linear-gradient(180deg, #151527, #121227);
+    border:1px solid var(--stroke); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow)
+  }
+  .card h2{margin:0 0 12px 0;font-size:15px;letter-spacing:.3px;color:#e6e9ff}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .col{flex:1 1 260px}
+
+  /* Últimas bolas */
+  .grid{
+    display:grid;gap:10px;grid-template-columns:repeat(10,1fr);
+    border-radius:14px;border:1px dashed var(--stroke);padding:10px;
+    background:linear-gradient(180deg,#111326,#0c0f1f);
+  }
+  .ball{
+    height:34px;border-radius:10px;border:1px solid var(--stroke);
+    display:flex;align-items:center;justify-content:center;font-weight:800;
+    background:linear-gradient(180deg,#0e1123,#0a0d1a);
+    text-shadow:0 0 14px rgba(159,91,255,.35);
+  }
+  .b-red{color:#ff7a7a}
+  .b-black{color:#cbd5e1}
+  .b-white{
+    color:#9f5bff;border:1px solid rgba(159,91,255,.6);
+    box-shadow:0 0 18px rgba(159,91,255,.35), inset 0 0 10px rgba(159,91,255,.15);
+  }
+
+  .progress{height:12px;background:#0c0f1f;border:1px solid var(--stroke);border-radius:999px;overflow:hidden}
+  .progress>i{display:block;height:100%;width:0%;
+    background:linear-gradient(90deg, var(--neon), var(--neon2));
+    box-shadow:0 0 14px rgba(159,91,255,.45)
+  }
   .tag{font-size:12px;color:var(--muted)}
-  table{width:100%;border-collapse:collapse} th,td{padding:10px;border-bottom:1px solid var(--stroke);font-size:13px} th{text-align:left;color:#3a4050} tr:last-child td{border-bottom:none}
-  .pill{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;border:1px solid var(--stroke);gap:6px;background:#fff;font-size:12px}
-  .controls .row > *{flex:1}
-  input[type="number"],select,button{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--stroke);background:#fff;font:inherit}
-  button{cursor:pointer;font-weight:700;box-shadow:var(--shadow);border:0;background:linear-gradient(135deg,var(--accent1),var(--accent2)); color:#fff}
-  button.ghost{background:#fff;color:var(--text);border:1px solid var(--stroke);box-shadow:none}
+
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px;border-bottom:1px solid var(--stroke);font-size:13px}
+  th{text-align:left;color:#b9c3ff}
+  tr:last-child td{border-bottom:none}
+  .pill{
+    display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:#0e1021;border:1px solid var(--stroke);gap:6px;font-size:12px
+  }
+
+  input[type="number"],select,button{
+    width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--stroke);
+    background:#0f1226;color:#e7eaff;font:inherit
+  }
+  button{
+    cursor:pointer;font-weight:800;border:0; letter-spacing:.3px;
+    background:linear-gradient(135deg, rgba(159,91,255,.95), rgba(0,179,255,.9));
+    color:#fff; box-shadow:0 10px 30px rgba(0,179,255,.18), 0 0 0 1px rgba(255,255,255,.04) inset
+  }
+  button.ghost{
+    background:#0e1021;color:#e7eaff;border:1px solid var(--stroke);box-shadow:none
+  }
+
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
   @media (max-width:700px){ .kpis{grid-template-columns:repeat(2,1fr)} }
-  .kpi{background:#fff;border:1px solid var(--stroke);border-radius:14px;padding:14px;box-shadow:var(--shadow)}
-  .kpi .v{font-size:20px;font-weight:800}.kpi .l{font-size:12px;color:var(--muted)}
+  .kpi{
+    background:linear-gradient(180deg,#12132a,#0d1022);
+    border:1px solid var(--stroke);border-radius:14px;padding:14px;box-shadow:var(--shadow)
+  }
+  .kpi .v{font-size:22px;font-weight:900}
+  .kpi .l{font-size:12px;color:var(--muted)}
+  .glow{
+    position:relative;
+  }
+  .glow:after{
+    content:"";position:absolute;inset:-1px;border-radius:inherit;
+    background:linear-gradient(135deg, rgba(159,91,255,.25), rgba(0,179,255,.25));
+    filter:blur(16px);opacity:.45;z-index:-1
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div class="brand"><div class="logo"></div><h1>Spectra X — Neural Hybrid Console</h1></div>
+    <div class="brand">
+      <div class="logo glow"></div>
+      <h1>Spectra X — Neural Trader (Classic)</h1>
+    </div>
     <div class="status-bar">
       <span class="chip"><span class="dot ok"></span> API: <b id="apiStatus">Online</b></span>
       <span class="chip">Modo: <b id="modeLabel">hybrid</b></span>
@@ -68,24 +136,38 @@
   </header>
 
   <main>
+    <!-- COL ESQUERDA -->
     <section class="card col">
       <h2>Últimas Rodadas & Probabilidades</h2>
       <div class="grid" id="lastGrid"></div>
 
       <div style="margin-top:12px" class="row">
-        <div class="col"><div class="pill">Red prob</div><div class="progress"><i id="pRed"></i></div><span class="tag" id="pRedTxt">0%</span></div>
-        <div class="col"><div class="pill">Black prob</div><div class="progress"><i id="pBlack"></i></div><span class="tag" id="pBlackTxt">0%</span></div>
-        <div class="col"><div class="pill">White prob</div><div class="progress"><i id="pWhite"></i></div><span class="tag" id="pWhiteTxt">0%</span></div>
+        <div class="col">
+          <div class="pill">Red prob</div>
+          <div class="progress"><i id="pRed"></i></div>
+          <span class="tag" id="pRedTxt">0%</span>
+        </div>
+        <div class="col">
+          <div class="pill">Black prob</div>
+          <div class="progress"><i id="pBlack"></i></div>
+          <span class="tag" id="pBlackTxt">0%</span>
+        </div>
+        <div class="col">
+          <div class="pill">White prob</div>
+          <div class="progress"><i id="pWhite"></i></div>
+          <span class="tag" id="pWhiteTxt">0%</span>
+        </div>
       </div>
 
       <div style="margin-top:12px" class="kpis">
-        <div class="kpi"><div class="v" id="sigTotal">0</div><div class="l">Sinais enviados</div></div>
+        <div class="kpi"><div class="v" id="sigTotal">0</div><div class="l">Sinais</div></div>
         <div class="kpi"><div class="v" id="wins">0</div><div class="l">Wins</div></div>
         <div class="kpi"><div class="v" id="losses">0</div><div class="l">Losses</div></div>
-        <div class="kpi"><div class="v" id="bank">R$ 0,00</div><div class="l">Resultado banca</div></div>
+        <div class="kpi"><div class="v" id="bank">R$ 0,00</div><div class="l">Resultado</div></div>
       </div>
     </section>
 
+    <!-- COL DIREITA -->
     <section class="card col">
       <h2>Controle da IA & Configurações</h2>
       <div class="controls">
@@ -122,6 +204,7 @@
       </div>
     </section>
 
+    <!-- HISTÓRICO -->
     <section class="card col" style="grid-column:1 / -1">
       <h2>Histórico de Operações</h2>
       <table>
@@ -133,16 +216,16 @@
 </div>
 
 <script>
-  // Base relativa — funciona local (Flask) e no Render
+  /* Mesma origem: funciona local e no Render */
   const API = "";
 
-  const el = (id)=>document.getElementById(id);
-  function money(v){ return "R$ " + (v||0).toFixed(2).replace(".",",") }
+  const $ = (id)=>document.getElementById(id);
+  const money = v => "R$ " + (v||0).toFixed(2).replace(".",",");
 
-  async function fetchJSON(url, opts){ const r = await fetch(url, opts); return await r.json(); }
+  async function j(url, opts){ const r = await fetch(url, opts); return await r.json(); }
 
   function renderBalls(arr){
-    const g = el("lastGrid"); g.innerHTML="";
+    const g = $("lastGrid"); g.innerHTML = "";
     arr.slice(-10).forEach(c=>{
       const b = document.createElement("div");
       b.className = "ball " + (c==="red"?"b-red":c==="black"?"b-black":"b-white");
@@ -152,93 +235,92 @@
   }
 
   function renderSignal(sig){
-    if(!sig){ el("sigColor").textContent="—"; el("sigGale").textContent="—"; el("sigStatus").textContent="—"; return; }
-    el("sigColor").textContent = (sig.color||"—").toUpperCase()+" | "+((sig.confidence||0)*100).toFixed(0)+"%";
-    el("sigGale").textContent  = (sig.gale_step||0) + " / " + (sig.max_gales||0);
-    el("sigStatus").textContent = sig.status||"—";
+    if(!sig){ $("sigColor").textContent="—"; $("sigGale").textContent="—"; $("sigStatus").textContent="—"; return; }
+    $("sigColor").textContent = (sig.color||"—").toUpperCase()+" | "+((sig.confidence||0)*100).toFixed(0)+"%";
+    $("sigGale").textContent  = (sig.gale_step||0) + " / " + (sig.max_gales||0);
+    $("sigStatus").textContent = sig.status||"—";
   }
 
-  function pushOpRow(sig){
-    if(!sig) return;
+  function row(op){
     const tr = document.createElement("tr");
-    const t = new Date(sig.created_at||Date.now()).toLocaleTimeString();
-    tr.innerHTML = `<td>${t}</td><td><span class="pill">${(sig.color||"").toUpperCase()}</span></td>
-      <td>${((sig.confidence||0)*100).toFixed(0)}%</td>
-      <td>${sig.gale_step||0}/${sig.max_gales||0}</td>
-      <td>${sig.result? (sig.result==="WIN"?"✅ WIN":"❌ LOSS") : "—"}</td>`;
-    el("opsBody").prepend(tr);
+    const t = new Date(op.created_at||Date.now()).toLocaleTimeString();
+    tr.innerHTML = `<td>${t}</td>
+      <td><span class="pill">${(op.color||"").toUpperCase()}</span></td>
+      <td>${((op.confidence||0)*100).toFixed(0)}%</td>
+      <td>${op.gale_step||0}/${op.max_gales||0}</td>
+      <td>${op.result ? (op.result==="WIN"?"✅ WIN":"❌ LOSS") : "—"}</td>`;
+    return tr;
   }
 
   let lastFinishedId = null;
   function maybeAppendFinished(op){
     if(!op || !op.result) return;
-    const opId = op.created_at;
-    if(opId && opId !== lastFinishedId){
-      pushOpRow(op);
-      lastFinishedId = opId;
+    const id = op.created_at;
+    if(id && id !== lastFinishedId){
+      $("opsBody").prepend(row(op));
+      lastFinishedId = id;
     }
   }
 
   async function refresh(){
     try{
-      const s = await fetchJSON(`${API}/api/state`);
-      el("modeLabel").textContent = s.config.mode;
-      el("stakeLabel").textContent = (s.config.stake||0).toFixed(2);
-      el("galesLabel").textContent = s.config.max_gales;
+      const s = await j(`${API}/api/state`);
+      $("modeLabel").textContent  = s.config.mode;
+      $("stakeLabel").textContent = (s.config.stake||0).toFixed(2);
+      $("galesLabel").textContent = s.config.max_gales;
 
-      el("sigTotal").textContent = s.metrics.total_signals;
-      el("wins").textContent = s.metrics.wins;
-      el("losses").textContent = s.metrics.losses;
-      el("bank").textContent = money(s.metrics.bank_result);
-      el("wrLabel").textContent = Math.round((s.metrics.winrate||0)*100)+"%";
+      $("sigTotal").textContent = s.metrics.total_signals;
+      $("wins").textContent     = s.metrics.wins;
+      $("losses").textContent   = s.metrics.losses;
+      $("bank").textContent     = money(s.metrics.bank_result);
+      $("wrLabel").textContent  = Math.round((s.metrics.winrate||0)*100)+"%";
 
       renderBalls(s.history_tail||[]);
 
-      // Prob simples derivada do recorte (visual)
+      // barras simples (visual) com base no recorte
       const c10 = s.counts10||{red:0,black:0,white:0,n:1};
       const pr = c10.red/(c10.n||1), pb = c10.black/(c10.n||1), pw = c10.white/(c10.n||1);
       const sum = (pr+pb+pw)||1; const nr = pr/sum, nb = pb/sum, nw = pw/sum;
-      const setBar = (id,val,txt)=>{ document.getElementById(id).style.width = Math.round(val*100)+"%"; document.getElementById(txt).textContent = Math.round(val*100)+"%"; };
+      const setBar = (id,val,txt)=>{ $(id).style.width = Math.round(val*100)+"%"; $(txt).textContent = Math.round(val*100)+"%"; };
       setBar("pRed", nr, "pRedTxt"); setBar("pBlack", nb, "pBlackTxt"); setBar("pWhite", nw, "pWhiteTxt");
 
       renderSignal(s.active_signal);
       if(s.active_signal && s.active_signal.status==="finished"){ maybeAppendFinished(s.active_signal); }
 
-      el("apiStatus").textContent = "Online";
+      $("apiStatus").textContent = "Online";
     }catch(e){
-      el("apiStatus").textContent = "Offline";
+      $("apiStatus").textContent = "Offline";
       console.error(e);
     }
   }
 
-  async function saveConfig(){
+  async function save(){
     const body = {
-      mode: document.getElementById("mode").value,
-      stake: parseFloat(document.getElementById("stake").value)||2,
-      max_gales: parseInt(document.getElementById("gales").value)||0,
-      confluence_min_color: parseInt(document.getElementById("confColor").value)||2,
-      confluence_min_white: parseInt(document.getElementById("confWhite").value)||2,
-      confidence_min: (parseInt(document.getElementById("confMin").value)||62)/100.0
+      mode: $("mode").value,
+      stake: parseFloat($("stake").value)||2,
+      max_gales: parseInt($("gales").value)||0,
+      confluence_min_color: parseInt($("confColor").value)||2,
+      confluence_min_white: parseInt($("confWhite").value)||2,
+      confidence_min: (parseInt($("confMin").value)||62)/100.0
     };
-    const r = await fetchJSON(`${API}/api/config`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-    if(r.ok){ refresh(); }
+    const r = await j(`${API}/api/config`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(r.ok) refresh();
   }
 
-  async function resetAll(){
-    const r = await fetchJSON(`${API}/api/reset`,{method:"POST"});
-    if(r.ok){ document.getElementById("opsBody").innerHTML = ""; lastFinishedId = null; refresh(); }
+  async function reset(){
+    const r = await j(`${API}/api/reset`, {method:"POST"});
+    if(r.ok){ $("opsBody").innerHTML = ""; lastFinishedId = null; refresh(); }
   }
 
-  async function demoFeed(){
-    // para testes locais ou no Render, você pode chamar /api/push_round diretamente
-    const u = Math.random(); let result = (u<0.45)?"red":(u<0.90)?"black":"white";
-    await fetchJSON(`${API}/api/push_round`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({result})});
+  async function demo(){
+    const u = Math.random(); const result = (u<0.45)?"red":(u<0.90)?"black":"white";
+    await j(`${API}/api/push_round`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({result})});
     refresh();
   }
 
-  document.getElementById("save").onclick = saveConfig;
-  document.getElementById("reset").onclick = resetAll;
-  document.getElementById("demoFeed").onclick = demoFeed;
+  $("save").onclick = save;
+  $("reset").onclick = reset;
+  $("demoFeed").onclick = demo;
 
   refresh();
   setInterval(refresh, 1000);
