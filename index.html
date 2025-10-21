@@ -8,123 +8,56 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    /* Tema Claro — Aurora Neon */
-    --bg:#f6f7f9;
-    --panel:#ffffff;
-    --card:#ffffff;
-    --stroke:#e7e9ee;
-    --text:#1d2228;
-    --muted:#707888;
-    --accent1:#12c2b0;  /* menta neon */
-    --accent2:#ff7a59;  /* coral suave */
-    --ok:#17b26a;
-    --warn:#eab308;
-    --bad:#ef4444;
-    --shadow: 0 8px 24px rgba(22,30,50,.08);
-    --radius: 18px;
+    --bg:#f6f7f9; --panel:#ffffff; --card:#ffffff; --stroke:#e7e9ee;
+    --text:#1d2228; --muted:#707888;
+    --accent1:#12c2b0; --accent2:#ff7a59;
+    --ok:#17b26a; --warn:#eab308; --bad:#ef4444;
+    --shadow: 0 8px 24px rgba(22,30,50,.08); --radius: 18px;
   }
-  *{box-sizing:border-box}
-  html,body{height:100%}
+  *{box-sizing:border-box} html,body{height:100%}
   body{
-    margin:0; font-family:Inter,system-ui,Segoe UI,Arial;
+    margin:0; font-family:Inter,system-ui,Segoe UI,Arial; color:var(--text);
     background: radial-gradient(1200px 800px at 10% -10%, #e9fbff 0%, transparent 40%),
                 radial-gradient(1400px 900px at 110% 10%, #fff1ec 0%, transparent 35%),
                 var(--bg);
-    color:var(--text);
   }
   .wrap{max-width:1200px;margin:24px auto;padding:0 16px;}
-  header{
-    display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;
-  }
-  .brand{
-    display:flex;align-items:center;gap:12px;
-  }
-  .logo{
-    width:42px;height:42px;border-radius:12px;
-    background:linear-gradient(135deg,var(--accent1),var(--accent2));
-    box-shadow:0 6px 16px rgba(18,194,176,.25);
-  }
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--accent1),var(--accent2));box-shadow:0 6px 16px rgba(18,194,176,.25)}
   .brand h1{font-size:20px;margin:0}
-  .status-bar{
-    background:var(--panel);border:1px solid var(--stroke);border-radius:var(--radius);
-    box-shadow:var(--shadow);padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;
-  }
-  .chip{
-    display:inline-flex;align-items:center;gap:8px;
-    padding:8px 12px;border-radius:14px;border:1px solid var(--stroke);background:#fff;
-  }
-  .chip .dot{width:8px;height:8px;border-radius:50%}
-  .dot.ok{background:var(--ok)}
-  .dot.warn{background:var(--warn)}
-  .dot.bad{background:var(--bad)}
-  main{
-    display:grid;gap:16px;grid-template-columns: 1.2fr 1fr;
-  }
+  .status-bar{background:var(--panel);border:1px solid var(--stroke);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:14px;border:1px solid var(--stroke);background:#fff}
+  .chip .dot{width:8px;height:8px;border-radius:50%}.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.bad{background:var(--bad)}
+  main{display:grid;gap:16px;grid-template-columns: 1.2fr 1fr}
   @media (max-width:980px){ main{grid-template-columns:1fr} }
-
-  .card{
-    background:var(--card);border:1px solid var(--stroke);border-radius:var(--radius);
-    box-shadow:var(--shadow);padding:16px;
-  }
+  .card{background:var(--card);border:1px solid var(--stroke);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
   .card h2{font-size:16px;margin:0 0 12px 0}
-  .row{display:flex;gap:12px;flex-wrap:wrap}
-  .col{flex:1 1 260px}
-
-  .grid{
-    display:grid;gap:10px;grid-template-columns:repeat(10,1fr);
-    border-radius:14px;border:1px dashed var(--stroke);padding:10px;background:#fafbfc;
-  }
-  .ball{
-    height:32px;border-radius:10px;border:1px solid var(--stroke);
-    display:flex;align-items:center;justify-content:center;font-weight:700;
-    background:#fff;
-  }
+  .row{display:flex;gap:12px;flex-wrap:wrap}.col{flex:1 1 260px}
+  .grid{display:grid;gap:10px;grid-template-columns:repeat(10,1fr);border-radius:14px;border:1px dashed var(--stroke);padding:10px;background:#fafbfc}
+  .ball{height:32px;border-radius:10px;border:1px solid var(--stroke);display:flex;align-items:center;justify-content:center;font-weight:700;background:#fff}
   .b-red{color:#c03221;background:linear-gradient(#fff,#ffeceb)}
   .b-black{color:#111;background:linear-gradient(#fff,#f1f1f1)}
-  .b-white{color:#12c2b0;border-style:solid;border-width:2px;border-color:#12c2b0;background:#f7fffe}
-
-  .progress{
-    height:10px;background:#eef1f5;border-radius:999px;overflow:hidden;border:1px solid var(--stroke)
-  }
+  .b-white{color:#12c2b0;border:2px solid #12c2b0;background:#f7fffe}
+  .progress{height:10px;background:#eef1f5;border-radius:999px;overflow:hidden;border:1px solid var(--stroke)}
   .progress > i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--accent1),var(--accent2))}
   .tag{font-size:12px;color:var(--muted)}
-
-  table{width:100%;border-collapse:collapse}
-  th,td{padding:10px;border-bottom:1px solid var(--stroke);font-size:13px}
-  th{text-align:left;color:#3a4050}
-  tr:last-child td{border-bottom:none}
-  .pill{
-    display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;border:1px solid var(--stroke);gap:6px;
-    background:#fff;font-size:12px
-  }
-
+  table{width:100%;border-collapse:collapse} th,td{padding:10px;border-bottom:1px solid var(--stroke);font-size:13px} th{text-align:left;color:#3a4050} tr:last-child td{border-bottom:none}
+  .pill{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;border:1px solid var(--stroke);gap:6px;background:#fff;font-size:12px}
   .controls .row > *{flex:1}
-  input[type="number"],select,button{
-    width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--stroke);background:#fff;font:inherit
-  }
-  button{
-    cursor:pointer;font-weight:700;box-shadow:var(--shadow);border:0;
-    background:linear-gradient(135deg,var(--accent1),var(--accent2)); color:#fff;
-  }
-  button.ghost{
-    background:#fff;color:var(--text);border:1px solid var(--stroke);box-shadow:none
-  }
+  input[type="number"],select,button{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--stroke);background:#fff;font:inherit}
+  button{cursor:pointer;font-weight:700;box-shadow:var(--shadow);border:0;background:linear-gradient(135deg,var(--accent1),var(--accent2)); color:#fff}
+  button.ghost{background:#fff;color:var(--text);border:1px solid var(--stroke);box-shadow:none}
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
   @media (max-width:700px){ .kpis{grid-template-columns:repeat(2,1fr)} }
-  .kpi{
-    background:#fff;border:1px solid var(--stroke);border-radius:14px;padding:14px;box-shadow:var(--shadow)
-  }
-  .kpi .v{font-size:20px;font-weight:800}
-  .kpi .l{font-size:12px;color:var(--muted)}
+  .kpi{background:#fff;border:1px solid var(--stroke);border-radius:14px;padding:14px;box-shadow:var(--shadow)}
+  .kpi .v{font-size:20px;font-weight:800}.kpi .l{font-size:12px;color:var(--muted)}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div class="brand">
-      <div class="logo"></div>
-      <h1>Spectra X — Neural Hybrid Console</h1>
-    </div>
+    <div class="brand"><div class="logo"></div><h1>Spectra X — Neural Hybrid Console</h1></div>
     <div class="status-bar">
       <span class="chip"><span class="dot ok"></span> API: <b id="apiStatus">Online</b></span>
       <span class="chip">Modo: <b id="modeLabel">hybrid</b></span>
@@ -140,40 +73,16 @@
       <div class="grid" id="lastGrid"></div>
 
       <div style="margin-top:12px" class="row">
-        <div class="col">
-          <div class="pill">Red prob</div>
-          <div class="progress"><i id="pRed"></i></div>
-          <span class="tag" id="pRedTxt">0%</span>
-        </div>
-        <div class="col">
-          <div class="pill">Black prob</div>
-          <div class="progress"><i id="pBlack"></i></div>
-          <span class="tag" id="pBlackTxt">0%</span>
-        </div>
-        <div class="col">
-          <div class="pill">White prob</div>
-          <div class="progress"><i id="pWhite"></i></div>
-          <span class="tag" id="pWhiteTxt">0%</span>
-        </div>
+        <div class="col"><div class="pill">Red prob</div><div class="progress"><i id="pRed"></i></div><span class="tag" id="pRedTxt">0%</span></div>
+        <div class="col"><div class="pill">Black prob</div><div class="progress"><i id="pBlack"></i></div><span class="tag" id="pBlackTxt">0%</span></div>
+        <div class="col"><div class="pill">White prob</div><div class="progress"><i id="pWhite"></i></div><span class="tag" id="pWhiteTxt">0%</span></div>
       </div>
 
       <div style="margin-top:12px" class="kpis">
-        <div class="kpi">
-          <div class="v" id="sigTotal">0</div>
-          <div class="l">Sinais enviados</div>
-        </div>
-        <div class="kpi">
-          <div class="v" id="wins">0</div>
-          <div class="l">Wins</div>
-        </div>
-        <div class="kpi">
-          <div class="v" id="losses">0</div>
-          <div class="l">Losses</div>
-        </div>
-        <div class="kpi">
-          <div class="v" id="bank">R$ 0,00</div>
-          <div class="l">Resultado banca</div>
-        </div>
+        <div class="kpi"><div class="v" id="sigTotal">0</div><div class="l">Sinais enviados</div></div>
+        <div class="kpi"><div class="v" id="wins">0</div><div class="l">Wins</div></div>
+        <div class="kpi"><div class="v" id="losses">0</div><div class="l">Losses</div></div>
+        <div class="kpi"><div class="v" id="bank">R$ 0,00</div><div class="l">Resultado banca</div></div>
       </div>
     </section>
 
@@ -188,23 +97,13 @@
               <option value="manual">manual</option>
             </select>
           </div>
-          <div><label class="tag">Stake (R$)</label>
-            <input id="stake" type="number" step="0.01" min="0.1" value="2.00"/>
-          </div>
-          <div><label class="tag">Max Gales</label>
-            <input id="gales" type="number" step="1" min="0" value="2"/>
-          </div>
+          <div><label class="tag">Stake (R$)</label><input id="stake" type="number" step="0.01" min="0.1" value="2.00"/></div>
+          <div><label class="tag">Max Gales</label><input id="gales" type="number" step="1" min="0" value="2"/></div>
         </div>
         <div class="row" style="margin-top:8px">
-          <div><label class="tag">Confluência Cor (min votos x/10)</label>
-            <input id="confColor" type="number" step="1" min="1" value="2"/>
-          </div>
-          <div><label class="tag">Confluência White (min votos x/10)</label>
-            <input id="confWhite" type="number" step="1" min="1" value="2"/>
-          </div>
-          <div><label class="tag">Confiança mínima (%)</label>
-            <input id="confMin" type="number" step="1" min="50" max="95" value="62"/>
-          </div>
+          <div><label class="tag">Confluência Cor (min votos x/10)</label><input id="confColor" type="number" step="1" min="1" value="2"/></div>
+          <div><label class="tag">Confluência White (min votos x/10)</label><input id="confWhite" type="number" step="1" min="1" value="2"/></div>
+          <div><label class="tag">Confiança mínima (%)</label><input id="confMin" type="number" step="1" min="50" max="95" value="62"/></div>
         </div>
         <div class="row" style="margin-top:12px">
           <button id="save">Salvar Config</button>
@@ -216,24 +115,9 @@
       <div style="margin-top:16px">
         <div class="pill">Sinal Ativo</div>
         <div class="row" style="margin-top:8px">
-          <div class="col">
-            <div class="kpi">
-              <div class="v" id="sigColor">—</div>
-              <div class="l">Cor / Confiança</div>
-            </div>
-          </div>
-          <div class="col">
-            <div class="kpi">
-              <div class="v" id="sigGale">—</div>
-              <div class="l">Gale (atual / máx)</div>
-            </div>
-          </div>
-          <div class="col">
-            <div class="kpi">
-              <div class="v" id="sigStatus">—</div>
-              <div class="l">Status</div>
-            </div>
-          </div>
+          <div class="col"><div class="kpi"><div class="v" id="sigColor">—</div><div class="l">Cor / Confiança</div></div></div>
+          <div class="col"><div class="kpi"><div class="v" id="sigGale">—</div><div class="l">Gale (atual / máx)</div></div></div>
+          <div class="col"><div class="kpi"><div class="v" id="sigStatus">—</div><div class="l">Status</div></div></div>
         </div>
       </div>
     </section>
@@ -241,11 +125,7 @@
     <section class="card col" style="grid-column:1 / -1">
       <h2>Histórico de Operações</h2>
       <table>
-        <thead>
-          <tr>
-            <th>Horário</th><th>Entrada</th><th>Confiança</th><th>Gales</th><th>Resultado</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Horário</th><th>Entrada</th><th>Confiança</th><th>Gales</th><th>Resultado</th></tr></thead>
         <tbody id="opsBody"></tbody>
       </table>
     </section>
@@ -253,139 +133,115 @@
 </div>
 
 <script>
-const API = "http://127.0.0.1:5001";
+  // Base relativa — funciona local (Flask) e no Render
+  const API = "";
 
-const el = (id)=>document.getElementById(id);
-function pct(v){ return Math.round((v||0)*100) + "%" }
-function money(v){ return "R$ " + (v||0).toFixed(2).replace(".",",") }
+  const el = (id)=>document.getElementById(id);
+  function money(v){ return "R$ " + (v||0).toFixed(2).replace(".",",") }
 
-async function fetchJSON(url, opts){
-  const r = await fetch(url, opts);
-  return await r.json();
-}
+  async function fetchJSON(url, opts){ const r = await fetch(url, opts); return await r.json(); }
 
-function renderBalls(arr){
-  const g = el("lastGrid"); g.innerHTML="";
-  const last = arr.slice(-10); // 10 mais recentes
-  last.forEach((c,i)=>{
-    const b = document.createElement("div");
-    b.className = "ball " + (c==="red"?"b-red":c==="black"?"b-black":"b-white");
-    b.textContent = c==="white"?"W":(c==="red"?"R":"B");
-    g.appendChild(b);
-  });
-}
-
-function renderSignal(sig){
-  if(!sig){ el("sigColor").textContent="—"; el("sigGale").textContent="—"; el("sigStatus").textContent="—"; return; }
-  el("sigColor").textContent = (sig.color||"—").toUpperCase()+" | "+((sig.confidence||0)*100).toFixed(0)+"%";
-  el("sigGale").textContent  = (sig.gale_step||0) + " / " + (sig.max_gales||0);
-  el("sigStatus").textContent = sig.status||"—";
-}
-
-function pushOpRow(sig){
-  if(!sig) return;
-  const tr = document.createElement("tr");
-  const t = new Date(sig.created_at||Date.now()).toLocaleTimeString();
-  tr.innerHTML = `
-    <td>${t}</td>
-    <td><span class="pill">${(sig.color||"").toUpperCase()}</span></td>
-    <td>${((sig.confidence||0)*100).toFixed(0)}%</td>
-    <td>${sig.gale_step||0}/${sig.max_gales||0}</td>
-    <td>${sig.result? (sig.result==="WIN"?"✅ WIN":"❌ LOSS") : "—"}</td>
-  `;
-  el("opsBody").prepend(tr);
-}
-
-let lastActiveId = null;
-function maybeAppendFinished(op){
-  if(!op) return;
-  // Identifica pelo timestamp
-  const opId = op.created_at;
-  if(op.result && opId !== lastActiveId){
-    pushOpRow(op);
-    lastActiveId = opId; // evita duplicar
+  function renderBalls(arr){
+    const g = el("lastGrid"); g.innerHTML="";
+    arr.slice(-10).forEach(c=>{
+      const b = document.createElement("div");
+      b.className = "ball " + (c==="red"?"b-red":c==="black"?"b-black":"b-white");
+      b.textContent = c==="white"?"W":(c==="red"?"R":"B");
+      g.appendChild(b);
+    });
   }
-}
 
-async function refresh(){
-  try{
-    const s = await fetchJSON(API+"/api/state");
-    // Header chips
-    el("modeLabel").textContent = s.config.mode;
-    el("stakeLabel").textContent = (s.config.stake||0).toFixed(2);
-    el("galesLabel").textContent = s.config.max_gales;
+  function renderSignal(sig){
+    if(!sig){ el("sigColor").textContent="—"; el("sigGale").textContent="—"; el("sigStatus").textContent="—"; return; }
+    el("sigColor").textContent = (sig.color||"—").toUpperCase()+" | "+((sig.confidence||0)*100).toFixed(0)+"%";
+    el("sigGale").textContent  = (sig.gale_step||0) + " / " + (sig.max_gales||0);
+    el("sigStatus").textContent = sig.status||"—";
+  }
 
-    // KPIs
-    el("sigTotal").textContent = s.metrics.total_signals;
-    el("wins").textContent = s.metrics.wins;
-    el("losses").textContent = s.metrics.losses;
-    el("bank").textContent = money(s.metrics.bank_result);
-    el("wrLabel").textContent = Math.round((s.metrics.winrate||0)*100)+"%";
+  function pushOpRow(sig){
+    if(!sig) return;
+    const tr = document.createElement("tr");
+    const t = new Date(sig.created_at||Date.now()).toLocaleTimeString();
+    tr.innerHTML = `<td>${t}</td><td><span class="pill">${(sig.color||"").toUpperCase()}</span></td>
+      <td>${((sig.confidence||0)*100).toFixed(0)}%</td>
+      <td>${sig.gale_step||0}/${sig.max_gales||0}</td>
+      <td>${sig.result? (sig.result==="WIN"?"✅ WIN":"❌ LOSS") : "—"}</td>`;
+    el("opsBody").prepend(tr);
+  }
 
-    // Últimas bolas
-    renderBalls(s.history_tail||[]);
-
-    // Probabilidades (aproxima dos scores normalizados; para UI, usamos strategy_weights indiretamente pelo backend)
-    // Para efeito visual simples, derivamos de counts10:
-    const c10 = s.counts10||{red:0,black:0,white:0,n:1};
-    const pr = c10.red/(c10.n||1), pb = c10.black/(c10.n||1), pw = c10.white/(c10.n||1);
-    const sum = (pr+pb+pw)||1;
-    const nr = pr/sum, nb = pb/sum, nw = pw/sum;
-    const setBar = (id,val,txt)=>{ el(id).style.width = Math.round(val*100)+"%"; el(txt).textContent = Math.round(val*100)+"%"; };
-    setBar("pRed", nr, "pRedTxt");
-    setBar("pBlack", nb, "pBlackTxt");
-    setBar("pWhite", nw, "pWhiteTxt");
-
-    // Sinal ativo
-    renderSignal(s.active_signal);
-    if(s.active_signal && s.active_signal.status==="finished"){
-      maybeAppendFinished(s.active_signal);
+  let lastFinishedId = null;
+  function maybeAppendFinished(op){
+    if(!op || !op.result) return;
+    const opId = op.created_at;
+    if(opId && opId !== lastFinishedId){
+      pushOpRow(op);
+      lastFinishedId = opId;
     }
-  }catch(e){
-    el("apiStatus").textContent = "Offline";
-    console.error(e);
   }
-}
 
-async function saveConfig(){
-  const body = {
-    mode: el("mode").value,
-    stake: parseFloat(el("stake").value)||2,
-    max_gales: parseInt(el("gales").value)||0,
-    confluence_min_color: parseInt(el("confColor").value)||2,
-    confluence_min_white: parseInt(el("confWhite").value)||2,
-    confidence_min: (parseInt(el("confMin").value)||62)/100.0
-  };
-  const r = await fetchJSON(API+"/api/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-  if(r.ok){ refresh(); }
-}
+  async function refresh(){
+    try{
+      const s = await fetchJSON(`${API}/api/state`);
+      el("modeLabel").textContent = s.config.mode;
+      el("stakeLabel").textContent = (s.config.stake||0).toFixed(2);
+      el("galesLabel").textContent = s.config.max_gales;
 
-async function resetAll(){
-  const r = await fetchJSON(API+"/api/reset",{method:"POST"});
-  if(r.ok){
-    el("opsBody").innerHTML = "";
-    lastActiveId = null;
+      el("sigTotal").textContent = s.metrics.total_signals;
+      el("wins").textContent = s.metrics.wins;
+      el("losses").textContent = s.metrics.losses;
+      el("bank").textContent = money(s.metrics.bank_result);
+      el("wrLabel").textContent = Math.round((s.metrics.winrate||0)*100)+"%";
+
+      renderBalls(s.history_tail||[]);
+
+      // Prob simples derivada do recorte (visual)
+      const c10 = s.counts10||{red:0,black:0,white:0,n:1};
+      const pr = c10.red/(c10.n||1), pb = c10.black/(c10.n||1), pw = c10.white/(c10.n||1);
+      const sum = (pr+pb+pw)||1; const nr = pr/sum, nb = pb/sum, nw = pw/sum;
+      const setBar = (id,val,txt)=>{ document.getElementById(id).style.width = Math.round(val*100)+"%"; document.getElementById(txt).textContent = Math.round(val*100)+"%"; };
+      setBar("pRed", nr, "pRedTxt"); setBar("pBlack", nb, "pBlackTxt"); setBar("pWhite", nw, "pWhiteTxt");
+
+      renderSignal(s.active_signal);
+      if(s.active_signal && s.active_signal.status==="finished"){ maybeAppendFinished(s.active_signal); }
+
+      el("apiStatus").textContent = "Online";
+    }catch(e){
+      el("apiStatus").textContent = "Offline";
+      console.error(e);
+    }
+  }
+
+  async function saveConfig(){
+    const body = {
+      mode: document.getElementById("mode").value,
+      stake: parseFloat(document.getElementById("stake").value)||2,
+      max_gales: parseInt(document.getElementById("gales").value)||0,
+      confluence_min_color: parseInt(document.getElementById("confColor").value)||2,
+      confluence_min_white: parseInt(document.getElementById("confWhite").value)||2,
+      confidence_min: (parseInt(document.getElementById("confMin").value)||62)/100.0
+    };
+    const r = await fetchJSON(`${API}/api/config`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(r.ok){ refresh(); }
+  }
+
+  async function resetAll(){
+    const r = await fetchJSON(`${API}/api/reset`,{method:"POST"});
+    if(r.ok){ document.getElementById("opsBody").innerHTML = ""; lastFinishedId = null; refresh(); }
+  }
+
+  async function demoFeed(){
+    // para testes locais ou no Render, você pode chamar /api/push_round diretamente
+    const u = Math.random(); let result = (u<0.45)?"red":(u<0.90)?"black":"white";
+    await fetchJSON(`${API}/api/push_round`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({result})});
     refresh();
   }
-}
 
-async function demoFeed(){
-  // Gera um resultado pseudo-aleatório com prob de white baixa
-  const u = Math.random();
-  let result = "red";
-  if(u < 0.45) result = "red";
-  else if(u < 0.90) result = "black";
-  else result = "white";
-  await fetchJSON(API+"/api/push_round",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({result})});
+  document.getElementById("save").onclick = saveConfig;
+  document.getElementById("reset").onclick = resetAll;
+  document.getElementById("demoFeed").onclick = demoFeed;
+
   refresh();
-}
-
-el("save").onclick = saveConfig;
-el("reset").onclick = resetAll;
-el("demoFeed").onclick = demoFeed;
-
-refresh();
-setInterval(refresh, 1000);
+  setInterval(refresh, 1000);
 </script>
 </body>
 </html>
