@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0b0b13; --panel:#101021; --glass:#0e0e1a; --stroke:#24243a;
+  --bg:#0b0b13; --panel:#101021; --stroke:#24243a;
   --text:#eef2ff; --muted:#9aa3b2; --neon:#9f5bff; --neon2:#00b3ff;
   --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --chip:#151536;
   --shadow:0 10px 30px rgba(0,0,0,.45);
@@ -29,9 +29,8 @@ body{
 }
 .title{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px}
 .kpi{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.chip{background:var(--chip);border:1px solid var(--stroke);padding:6px 10px;border-radius:999px;font-weight:800}
 .btn{background:linear-gradient(180deg,#8b5cf6,#7c3aed);border:0;color:#fff;font-weight:800;padding:10px 14px;border-radius:12px;cursor:pointer;box-shadow:0 6px 14px rgba(139,92,246,.25)}
-.btn.ghost{background:transparent;border:1px solid var(--stroke);color:var(--text);font-weight:700;box-shadow:none}
+.btn.ghost{background:transparent;border:1px solid var(--stroke);color:var(--text);font-weight:700}
 .seg{display:flex;border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
 .seg button{background:transparent;color:var(--text);padding:8px 12px;border:0;cursor:pointer}
 .seg button.active{background:var(--neon);color:#0b0b13;font-weight:900}
@@ -43,13 +42,11 @@ body{
 .summary{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .summary .pill{background:rgba(21,21,38,.7);border:1px solid var(--stroke);padding:6px 10px;border-radius:999px;font-weight:800}
 
-/* Card IA */
+/* Painel IA */
 .neural-banner{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:stretch;
   border:1px solid var(--stroke);border-radius:18px;padding:16px;
   background:linear-gradient(180deg, rgba(159,91,255,.07), rgba(0,0,0,0));position:relative}
 .header-line{display:flex;gap:10px;align-items:center;margin-bottom:8px}
-.confirm-badge{padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.25);
-  background:linear-gradient(90deg,#00ffcc,#9f5bff);color:#0b0b13;font-weight:900;font-size:12px;display:none;box-shadow:0 8px 20px rgba(0,255,204,.18)}
 .q-badge{padding:4px 10px;border-radius:999px;border:1px solid var(--stroke);background:rgba(21,21,38,.7);font-weight:800}
 .q-badge.good{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.35)}
 .q-badge.mid{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.35)}
@@ -58,31 +55,40 @@ body{
 
 .left{display:grid;place-items:center}
 .brain{width:100%;max-width:320px;aspect-ratio:1/1;border-radius:50%;display:grid;place-items:center;position:relative}
-.ring{position:absolute;inset:7.5%;border-radius:50%;
-  background:conic-gradient(from 90deg, var(--neon), var(--neon2), var(--neon), var(--neon2));
+
+/* Anel: estático por padrão, classes controlam efeito */
+.ring{
+  position:absolute;inset:7.5%;border-radius:50%;
+  background:
+    conic-gradient(from 90deg, #60a5fa, #a78bfa, #60a5fa, #a78bfa 98%, #60a5fa);
   -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 10px));
           mask:radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 10px));
-  animation:spin 9s linear infinite;filter:drop-shadow(0 0 10px rgba(159,91,255,.35))}
-@keyframes spin{to{transform:rotate(360deg)}}
-.ring--idle{opacity:.6} .ring--open{filter:drop-shadow(0 0 16px rgba(0,255,204,.35))}
-.ring--gale{background:conic-gradient(from 90deg,#f59e0b,#ef4444,#f59e0b,#ef4444)}
-.brain-core{text-align:center;display:grid;place-items:center}
-
-/* miolo colorido (preenche tudo) */
-.disc{
-  position:absolute;
-  inset: calc(7.5% + 10px);
-  border-radius:50%;
-  box-shadow: inset 0 0 24px rgba(0,0,0,.25), 0 8px 24px rgba(0,0,0,.25);
+  box-shadow:0 0 0 rgba(0,0,0,0), inset 0 0 0 rgba(0,0,0,0);
 }
-.disc::after{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.06),transparent 60%)}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes breathe{
+  0%{box-shadow:0 0 0 rgba(0,255,204,0.0)}
+  50%{box-shadow:0 0 18px rgba(0,255,204,0.35)}
+  100%{box-shadow:0 0 0 rgba(0,255,204,0.0)}
+}
+@keyframes danger{
+  0%{box-shadow:0 0 0 rgba(239,68,68,0.0)}
+  50%{box-shadow:0 0 16px rgba(245,158,11,0.35),0 0 26px rgba(239,68,68,0.25)}
+  100%{box-shadow:0 0 0 rgba(239,68,68,0.0)}
+}
+.ring--idle{}                    /* estático */
+.ring--spin{animation:spin 12s linear infinite}   /* analisando */
+.ring--open{animation:breathe 2.4s ease-in-out infinite}
+.ring--gale{animation:danger 2.0s ease-in-out infinite}
+
+.brain-core{text-align:center;display:grid;place-items:center}
+.disc{position:absolute;inset:calc(7.5% + 10px);border-radius:50%;box-shadow:inset 0 0 24px rgba(0,0,0,.25),0 8px 24px rgba(0,0,0,.25)}
 .disc.red{background:linear-gradient(180deg,#ff3856,#b31830)}
 .disc.black{background:linear-gradient(180deg,#10151b,#0a0d12)}
 .disc.white{background:linear-gradient(180deg,#ffffff,#e9ebef);border:1px solid #d9d9d9}
+.pct{font-size:18px;opacity:.92;font-weight:800;z-index:1;display:none}
+.pct.show{display:block}
 
-.pct{font-size:18px;opacity:.92;font-weight:800;z-index:1}
-
-/* direita */
 .right{display:grid;gap:10px}
 .item{background:rgba(21,21,38,.7);border:1px solid var(--stroke);border-radius:12px;padding:10px}
 .item-title{font-size:12px;color:var(--muted);margin-bottom:6px}
@@ -91,21 +97,18 @@ body{
 .ball{min-width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-weight:900;border:1px solid var(--stroke);box-shadow:0 6px 12px rgba(0,0,0,.25)}
 .ball.R{background:#ff2b46}.ball.B{background:#0f1117}.ball.W{background:#fff;color:#111;border-color:#ddd}
 .scroll{display:flex;gap:8px;overflow:auto;padding:6px 2px}
-
-.hide{display:none!important}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <!-- Topbar -->
   <div class="panel">
     <div class="topbar">
       <h1>SNIPER BLAZE — Neural Trader</h1>
       <div class="summary">
         <span class="pill" id="state-pill">OFFLINE • —</span>
         <div class="seg">
-          <button type="button" class="active" id="mode-cores" title="Modo CORES">CORES</button>
-          <button type="button" id="mode-branco" title="Modo BRANCO">BRANCO</button>
+          <button type="button" class="active" id="mode-cores">CORES</button>
+          <button type="button" id="mode-branco">BRANCO</button>
         </div>
         <button type="button" class="btn" id="btn-start">Iniciar</button>
         <button type="button" class="btn ghost" id="btn-stop">Parar</button>
@@ -113,57 +116,32 @@ body{
     </div>
   </div>
 
-  <!-- Grid -->
   <div class="row g2" style="margin-top:14px">
-    <!-- Col 1: Card IA -->
     <div class="panel">
-      <div class="title">
-        <div class="kpi"><!-- Dom/Gap removidos --></div>
-        <!-- cooldowns removidos -->
-      </div>
-
       <div class="neural-banner">
-        <!-- esquerda -->
         <div class="left">
           <div class="header-line">
-            <span class="confirm-badge" id="confirm-badge">ENTRADA CONFIRMADA ✅</span>
             <span id="quality-badge" class="q-badge">Qualidade —</span>
             <span id="round-timer" class="timer">--:--</span>
           </div>
-
           <div class="brain">
             <div id="ring" class="ring ring--idle"></div>
             <div class="brain-core">
-              <div class="disc" id="tgt-disc" aria-label="cor alvo"></div>
+              <div class="disc" id="tgt-disc"></div>
               <div class="pct" id="banner-pct">—%</div>
-              <!-- alvo-name removido -->
             </div>
           </div>
         </div>
 
-        <!-- direita -->
         <div class="right">
-          <div class="item">
-            <div class="item-title">Estratégia</div>
-            <div class="item-value" id="meta-strategy">—</div>
-          </div>
-          <div class="item">
-            <div class="item-title">Confluência</div>
-            <div class="item-value" id="meta-conf">—</div>
-          </div>
-          <div class="item">
-            <div class="item-title">Gales</div>
-            <div class="item-value" id="gales-max">—</div>
-          </div>
-          <div class="item">
-            <div class="item-title">Status</div>
-            <div class="item-value" id="meta-rec">—</div>
-          </div>
+          <div class="item"><div class="item-title">Estratégia</div><div class="item-value" id="meta-strategy">—</div></div>
+          <div class="item"><div class="item-title">Confluência</div><div class="item-value" id="meta-conf">—</div></div>
+          <div class="item"><div class="item-title">Gales</div><div class="item-value" id="gales-max">—</div></div>
+          <div class="item"><div class="item-title">Status</div><div class="item-value" id="meta-rec">—</div></div>
         </div>
       </div>
     </div>
 
-    <!-- Col 2: Giros (heatmap removido) -->
     <div class="panel">
       <div class="title"><strong>Últimos giros</strong></div>
       <div id="rolls" class="scroll"></div>
@@ -175,135 +153,128 @@ body{
 const API = location.origin;
 const $ = s => document.querySelector(s);
 
-// ===== timers =====
-let lastHistLen = 0, lastSpinAt = Date.now(), spinMs = 12000;
-setInterval(()=>{ const el=$('#round-timer'); if(!el) return;
-  const now=Date.now(), remain=Math.max(0,lastSpinAt+spinMs-now);
-  const sec=Math.ceil(remain/1000), mm=Math.floor(sec/60), ss=(sec%60).toString().padStart(2,'0');
-  el.textContent = `${mm}:${ss}`;
-}, 200);
+let lastHistLen=0,lastSpinAt=Date.now(),spinMs=12000;
+setInterval(()=>{const el=$('#round-timer');if(!el)return;
+  const now=Date.now(),remain=Math.max(0,lastSpinAt+spinMs-now);
+  const sec=Math.ceil(remain/1000),mm=Math.floor(sec/60),ss=(sec%60).toString().padStart(2,'0');
+  el.textContent=`${mm}:${ss}`;},200);
 
-// ===== UI controls =====
 function setActiveModeButton(mode){
-  const cores=$('#mode-cores'), branco=$('#mode-branco');
-  if(mode==='CORES'){ cores.classList.add('active'); branco.classList.remove('active'); }
-  else { branco.classList.add('active'); cores.classList.remove('active'); }
+  const c=$('#mode-cores'),b=$('#mode-branco');
+  if(mode==='CORES'){c.classList.add('active');b.classList.remove('active');}
+  else{b.classList.add('active');c.classList.remove('active');}
 }
 $('#mode-cores').onclick=()=>fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'CORES'})}).then(()=>setActiveModeButton('CORES'));
 $('#mode-branco').onclick=()=>fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'BRANCO'})}).then(()=>setActiveModeButton('BRANCO'));
 $('#btn-start').onclick=()=>fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:true})}).then(()=>$('#state-pill').textContent='ONLINE • —');
 $('#btn-stop').onclick=()=>fetch(API+'/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bot_on:false})}).then(()=>$('#state-pill').textContent='OFFLINE • —');
 
-// ===== helpers =====
-function ball(n){ if(n===0) return `<div class="ball W">0</div>`; const c=(n>=1&&n<=7)?'R':'B'; return `<div class="ball ${c}">${n}</div>`; }
+function ball(n){if(n===0)return`<div class="ball W">0</div>`;const c=(n>=1&&n<=7)?'R':'B';return`<div class="ball ${c}">${n}</div>`;}
 function setTargetVisual(tgt){
-  const disc = $('#tgt-disc');
-  disc.className = 'disc';
-  if(tgt==='W') disc.classList.add('white');
-  else if(tgt==='R') disc.classList.add('red');
-  else disc.classList.add('black');
+  const disc=$('#tgt-disc'); disc.className='disc';
+  if(tgt==='W')disc.classList.add('white');
+  else if(tgt==='R')disc.classList.add('red');
+  else if(tgt==='B')disc.classList.add('black');
 }
-function computeQuality(openTrade, probs){
-  const conf=openTrade?.confluence??0; const maxg=openTrade?.max_gales??0; const p=Number(probs?.rec?.p||0);
-  let score=(p*0.6)+(conf*6)-(maxg*8); score=Math.max(0,Math.min(100,Math.round(score)));
-  const label=score>=70?'Alta':score>=45?'Média':'Baixa'; return {score,label};
+function computeQuality(o,p){
+  const conf=o?.confluence??0, maxg=o?.max_gales??0, pr=Number(p?.rec?.p||0);
+  let score=(pr*0.6)+(conf*6)-(maxg*8);
+  score=Math.max(0,Math.min(100,Math.round(score)));
+  const label=score>=70?'Alta':score>=45?'Média':'Baixa';
+  return{score,label};
 }
-function setQualityBadge(q){ const el=$('#quality-badge'); el.className='q-badge '+(q.score>=70?'good':q.score>=45?'mid':'low'); el.textContent=`Qualidade: ${q.label} • ${q.score}%`; }
-function setGalesMax(openTrade){
-  const el = $('#gales-max');
-  if(!openTrade){ el.textContent = '—'; return; }
-  const max = openTrade.max_gales || 0;
-  el.textContent = max === 1 ? 'até 1 gale' : `até ${max} gales`;
+function setQualityBadge(q){
+  const el=$('#quality-badge');
+  el.className='q-badge '+(q.score>=70?'good':q.score>=45?'mid':'low');
+  el.textContent=`Qualidade: ${q.label} • ${q.score}%`;
+}
+function setGalesMax(o){
+  const el=$('#gales-max'); if(!o){el.textContent='—';return;}
+  const m=o.max_gales||0; el.textContent=m===1?'até 1 gale':`até ${m} gales`;
+}
+function open_trade_type(t){return t?.type||null;}
+function showPct(flag){const el=$('#banner-pct'); el.classList.toggle('show', !!flag);}
+
+function resetSignalUI(){
+  const disc=$('#tgt-disc'); disc.className='disc';
+  $('#banner-pct').textContent='—%'; showPct(false);
+  $('#meta-strategy').textContent='—';
+  $('#meta-conf').textContent='—';
+  $('#gales-max').textContent='—';
+  $('#meta-rec').textContent='—';
+  const elQ=$('#quality-badge'); elQ.className='q-badge'; elQ.textContent='Qualidade —';
+  $('#ring').className='ring ring--idle';
 }
 
-// ===== banner/fases =====
 let _confirmTimer=null;
-function setBannerFrom(openTrade, probs){
-  const tgt = openTrade ? openTrade.target : (probs?.rec?.tgt || 'B');
-  const pct = openTrade ? probs?.rec?.p : (probs?.rec?.p || 0);
+function setBannerFrom(o,p){
+  if(!o){resetSignalUI();return;}
+  const tgt=o.target, pct=Number(p?.rec?.p||0);
   setTargetVisual(tgt);
-  $('#banner-pct').textContent = `${Math.round(pct*10)/10}%`;
-  $('#meta-conf').textContent = openTrade?.confluence ?? '—';
-  // 👇 Estrategia 1 (white) / 2 (cores)
-  const estr = open_trade_type(openTrade)==='white' ? 'Estratégia 1' :
-               open_trade_type(openTrade)==='color' ? 'Estratégia 2' : '—';
-  $('#meta-strategy').textContent = estr;
-  setGalesMax(openTrade);
+  $('#banner-pct').textContent=`${Math.round(pct*10)/10}%`;
+  showPct(true); // só mostra % com sinal
+  $('#meta-conf').textContent=o.confluence??'—';
+  const estr=open_trade_type(o)==='white'?'Estratégia 1':open_trade_type(o)==='color'?'Estratégia 2':'—';
+  $('#meta-strategy').textContent=estr;
+  setGalesMax(o);
 }
-function open_trade_type(tr){ return tr?.type || null; }
+function setPhase(o,p){
+  const ring=$('#ring');
+  if(!o){ if(_confirmTimer){clearTimeout(_confirmTimer);_confirmTimer=null;} resetSignalUI(); return; }
 
-function setPhase(openTrade, probs){
-  const badge=$('#confirm-badge'); const ring=$('#ring');
-
-  if(!openTrade){
-    badge.style.display='none';
-    if(_confirmTimer){ clearTimeout(_confirmTimer); _confirmTimer=null; }
-    ring.className='ring ring--idle';
-    $('#meta-rec').textContent='—';
-    setGalesMax(null);
-    return;
-  }
-
-  if(openTrade.phase==='analyzing'){
-    badge.style.display='none';
-    if(_confirmTimer){ clearTimeout(_confirmTimer); _confirmTimer=null; }
-    ring.className='ring ring--idle';
-    const pr = probs?.rec ? `${Math.round(probs.rec.p*10)/10}%` : '—%';
+  if(o.phase==='analyzing'){
+    if(_confirmTimer){clearTimeout(_confirmTimer);_confirmTimer=null;}
+    ring.className='ring ring--spin';
+    const pr=p?.rec?`${Math.round(p.rec.p*10)/10}%`:'—%';
     $('#meta-rec').textContent=`Analisando • ${pr}`;
-    setGalesMax(openTrade);
+    setGalesMax(o);
     return;
   }
 
-  const g=openTrade.step||0, maxg=openTrade.max_gales||0;
-  setGalesMax(openTrade);
-
+  const g=o.step||0,m=o.max_gales||0;
+  setGalesMax(o);
   if(g===0){
-    badge.style.display='inline-block';
     ring.className='ring ring--open';
-    $('#meta-rec').textContent=`Sinal ativo • G0 (até ${maxg})`;
-    if(_confirmTimer){ clearTimeout(_confirmTimer); }
-    _confirmTimer=setTimeout(()=>{ badge.style.display='none'; _confirmTimer=null; }, 5000);
+    $('#meta-rec').textContent=`Sinal ativo • G0 (até ${m})`;
   }else{
-    badge.style.display='none';
-    if(_confirmTimer){ clearTimeout(_confirmTimer); _confirmTimer=null; }
     ring.className='ring ring--gale';
-    $('#meta-rec').textContent=`Sinal ativo • GALE ${g}/${maxg}`;
+    $('#meta-rec').textContent=`Sinal ativo • GALE ${g}/${m}`;
   }
 }
 
-// ===== estado inicial =====
 function clearOnFirstLoad(){
   $('#rolls').innerHTML='';
-  $('#confirm-badge').style.display='none';
-  $('#banner-pct').textContent='—%';
-  $('#meta-rec').textContent='—';
+  resetSignalUI();
 }
 
-// ===== Loop =====
 async function tick(){
   try{
-    const res=await fetch(API+'/state'); const j=await res.json();
-
-    $('#state-pill').textContent = `${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`;
+    const r=await fetch(API+'/state'); const j=await r.json();
+    $('#state-pill').textContent=`${j.bot_on?'ONLINE':'OFFLINE'} • ${j.mode}`;
     setActiveModeButton(j.mode);
 
     const seq=j.last_50||[]; const has=seq.length>0;
-    $('#rolls').innerHTML = has ? seq.slice(-14).map(n=>ball(n)).join('') : '';
+    $('#rolls').innerHTML=has?seq.slice(-14).map(n=>ball(n)).join(''):'';
 
-    const len=seq.length; if(len>lastHistLen){ const now=Date.now(); const dt=now-lastSpinAt; if(dt>1000&&dt<40000){ spinMs = 0.7*spinMs + 0.3*dt; } lastSpinAt=now; lastHistLen=len; }
+    const len=seq.length;
+    if(len>lastHistLen){const now=Date.now();const dt=now-lastSpinAt;if(dt>1000&&dt<40000){spinMs=0.7*spinMs+0.3*dt;}lastSpinAt=now;lastHistLen=len;}
 
     if(has){
-      const probs={rec:{tgt:j.probs.rec.tgt,p:j.probs.rec.p}};
-      setBannerFrom(j.open_trade, probs);
-      setPhase(j.open_trade, probs);
-      const q=computeQuality(j.open_trade, probs); setQualityBadge(q);
+      const p={rec:{tgt:j.probs.rec.tgt,p:j.probs.rec.p}};
+      if(j.open_trade){
+        setBannerFrom(j.open_trade,p);
+        setPhase(j.open_trade,p);
+        const q=computeQuality(j.open_trade,p); setQualityBadge(q);
+      }else{
+        resetSignalUI();
+      }
     }else{
       clearOnFirstLoad();
     }
   }catch(e){
     console.error(e); $('#state-pill').textContent='OFFLINE • —';
   }finally{
-    setTimeout(tick, 900);
+    setTimeout(tick,900);
   }
 }
 clearOnFirstLoad(); tick();
