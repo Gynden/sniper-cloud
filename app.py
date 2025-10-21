@@ -1,7 +1,10 @@
 # app.py
-# Flask API para o painel SNIPER BLAZE — com trava de 1 sinal por vez,
-# estado enriquecido, saúde da conexão e estatísticas por estratégia.
-
+# SPECTRA X — IA de Sinais para Blaze
+# Flask API do painel com:
+# - IA on-line embutida (aprende a cada giro)
+# - Detecção de "mercado ruim" (winrate/entropia)
+# - Trava 1 sinal por vez + gales
+# - Estatísticas por estratégia (retrocompatíveis)
 import math, time, json
 from collections import deque, defaultdict
 from datetime import datetime, timezone
@@ -19,7 +22,7 @@ SELECAO_RISCO = "conservador"         # "conservador" | "agressivo"
 EVAL_SAME_SPIN = False
 STRICT_ONE_AT_A_TIME = True           # trava explícita
 
-# Fonte de dados (apenas rótulo informativo para UI)
+# Fonte de dados (informativo p/ UI)
 DATA_SOURCE = "tipminer"              # "blaze" | "tipminer" | "mock"
 
 # ========================= Estado =========================
@@ -29,9 +32,7 @@ last_snapshot = []                    # p/ merge
 bot_on = False
 mode_selected = "CORES"               # "BRANCO" | "CORES"
 
-# Trade aberto
-# {'id':int,'type':'white'|'color','target':'W'|'R'|'B','step':0,'max_gales':int,
-#  'strategy':str,'confluence':int,'opened_at':int,'opened_at_ts':float,'phase':'analyzing'|'open'}
+# Sinal/trade aberto
 open_trade = None
 trade_counter = 0
 
@@ -42,7 +43,7 @@ cool_color = 0
 last_ingest_wall = None   # datetime
 last_ingest_mono = None   # time.monotonic()
 
-# ========================= Helpers =========================
+# ========================= Helpers gerais =========================
 def is_red(n):   return 1 <= n <= 7
 def is_black(n): return 8 <= n <= 14
 def color_code(n):
@@ -143,7 +144,168 @@ def tick_cooldowns():
     if cool_white > 0: cool_white -= 1
     if cool_color > 0: cool_color -= 1
 
-# ========================= Estratégias ======================
+# ========================= IA embutida ======================
+# - SpectraLearner (aprendizado on-line)
+# - RegimeDetector (mercado ruim por entropia/winrate)
+# - BankrollAdvisor (stake sugerida)
+import numpy as np
+from collections import deque as _deque
+
+try:
+    from sklearn.linear_model import SGDClassifier
+    _HAS_SK = True
+except Exception:
+    _HAS_SK = False
+
+_CL_COLOR = np.array([0,1])  # 0=BLACK,1=RED
+_CL_WHITE = np.array([0,1])  # 0=NO,1=WHITE
+
+class SpectraLearner:
+    def __init__(self, hist_max=2000):
+        self.hist = _deque(maxlen=hist_max)
+        self._boot_white = True
+        self._boot_color = True
+        # fallback beta (sem sklearn)
+        self._wins_red = 1.0; self._loss_red = 1.0
+        self._wins_white = 1.0; self._loss_white = 13.0
+        if _HAS_SK:
+            self.m_color = SGDClassifier(loss="log_loss", random_state=7)
+            self.m_white = SGDClassifier(loss="log_loss", random_state=7)
+        else:
+            self.m_color = None; self.m_white = None
+
+    def _features(self, ctx):
+        ult = ctx.get("ultimos", [])
+        lat = float(ctx.get("lat_ms", 0))/1000.0
+        hora = ctx.get("hora", datetime.utcnow().hour)
+        dow  = ctx.get("dow", datetime.utcnow().weekday())
+        conf = float(ctx.get("confluencia", 0))
+        strat_bits = ctx.get("estrats_bits", [])
+
+        cores = [u["cor"] for u in ult]
+        nums  = [u["num"] for u in ult]
+        n = len(ult)
+
+        def prop(c): return (cores.count(c)/n) if n else 0.0
+
+        streak = 0
+        if n:
+            last=None
+            for i in range(n-1,-1,-1):
+                c = cores[i]
+                if c=='W':
+                    if streak==0: continue
+                    else: break
+                if last is None or c==last: streak+=1; last=c
+                else: break
+
+        alt=0; k=min(10,max(0,n-1)); st=max(0,n-k)
+        for i in range(st,n-1):
+            if cores[i] != 'W' and cores[i+1] != 'W' and cores[i]!=cores[i+1]:
+                alt+=1
+
+        dist_w = 999
+        for i in range(n-1,-1,-1):
+            if cores[i]=='W': dist_w=(n-1)-i; break
+
+        ult20 = nums[-20:] if n else []
+        total20 = max(1,len(ult20))
+        pares   = sum(1 for x in ult20 if x%2==0)
+        impares = total20 - pares
+        p_par   = pares/total20
+        p_imp   = impares/total20
+
+        h_norm = float(hora)/23.0
+        d_norm = float(dow)/6.0
+
+        x = [
+            prop('R'), prop('B'), prop('W'),
+            float(streak), float(alt)/10.0,
+            float(dist_w)/40.0,
+            p_par, p_imp,
+            conf/6.0, lat, h_norm, d_norm
+        ] + list(map(float, strat_bits or []))
+        return np.array(x, dtype=float)
+
+    def predict(self, ctx):
+        x = self._features(ctx).reshape(1,-1)
+        if not _HAS_SK:
+            p_red   = self._wins_red / (self._wins_red + self._loss_red)
+            p_white = self._wins_white / (self._wins_white + self._loss_white)
+            p_red   = float(max(0.05, min(0.95, p_red)))
+            p_white = float(max(0.01, min(0.40, p_white)))
+            return p_red, p_white
+        p_red=0.5; p_white=0.07
+        if not self._boot_color: p_red = float(self.m_color.predict_proba(x)[0,1])
+        if not self._boot_white: p_white= float(self.m_white.predict_proba(x)[0,1])
+        return p_red, p_white
+
+    def update(self, ctx, resultado):
+        c = resultado.get("cor_saida")
+        x = self._features(ctx).reshape(1,-1)
+        # WHITE
+        y_w = np.array([1 if c=='W' else 0])
+        if _HAS_SK:
+            if self._boot_white:
+                self.m_white.partial_fit(x, y_w, classes=_CL_WHITE); self._boot_white=False
+            else:
+                self.m_white.partial_fit(x, y_w)
+        else:
+            if c=='W': self._wins_white+=1.0
+            else:      self._loss_white+=1.0
+        # COLOR (ignora branco)
+        if c!='W':
+            y_c = np.array([1 if c=='R' else 0])
+            if _HAS_SK:
+                if self._boot_color:
+                    self.m_color.partial_fit(x, y_c, classes=_CL_COLOR); self._boot_color=False
+                else:
+                    self.m_color.partial_fit(x, y_c)
+            else:
+                if c=='R': self._wins_red+=1.0
+                else:      self._loss_red+=1.0
+
+# RegimeDetector simples (entropia/winrate)
+import math as _math
+import collections as _collections
+def _entropy(p, eps=1e-9):
+    p = max(eps, min(1.0-eps, p))
+    return - (p*_math.log(p) + (1.0-p)*_math.log(1.0-p))
+
+class RegimeDetector:
+    def __init__(self, win_window=60, ent_window=10, ent_thr=0.95):
+        self.last_preds = _collections.deque(maxlen=ent_window)
+        self.last_outcomes = _collections.deque(maxlen=win_window)
+        self.ent_thr = ent_thr
+    def update_pred(self, p_major): self.last_preds.append(p_major)
+    def update_outcome(self, win01): self.last_outcomes.append(1 if win01 else 0)
+    def winrate(self):
+        n = max(1, len(self.last_outcomes))
+        return sum(self.last_outcomes)/n
+    def entropia_alta(self):
+        if len(self.last_preds) < self.last_preds.maxlen: return False
+        e = sum(_entropy(p) for p in self.last_preds)/len(self.last_preds)
+        return e > self.ent_thr
+    def mercado_ruim(self):
+        return (self.winrate() < 0.48) or self.entropia_alta()
+
+# BankrollAdvisor (pronto p/ uso futuro)
+class BankrollAdvisor:
+    def __init__(self, banca=20.0, frac_base=0.01, frac_cap=0.02):
+        self.banca=banca; self.frac_base=frac_base; self.frac_cap=frac_cap
+    def set_banca(self, v): self.banca=float(v)
+    def stake_sugerida(self, p_win_est, odds_net=1.0):
+        if p_win_est is None: return round(self.banca*self.frac_base,2)
+        edge = max(0.0, (p_win_est*odds_net - (1.0 - p_win_est)))
+        f = min(self.frac_cap, max(self.frac_base, edge/(odds_net+1e-6)))
+        return round(self.banca*f, 2)
+
+# Instâncias da IA
+learner = SpectraLearner(hist_max=2000)
+regime  = RegimeDetector()
+bank    = BankrollAdvisor(banca=20.0)
+
+# ========================= Estratégias (legado p/ confluência/estatísticas) ======================
 WHITE_STRATS = [
     {"name": "Repetição curta (2x em 12)", "max_gales": 1,
      "check": lambda s: whites_in_window(s,12) >= 2},
@@ -216,72 +378,6 @@ def last_color(seq):
         return "R" if is_red(v) else "B"
     return None
 
-def other(c): return "B" if c=="R" else "R"
-
-COLOR_STRATS = [
-    {"name":"Repete 2→3", "max_gales":2,
-     "check": lambda s: (lambda st,lc: (st>=2, lc))( *streak_len_color(s) )},
-    {"name":"Repete 3→4", "max_gales":1,
-     "check": lambda s: (lambda st,lc: (st>=3, lc))( *streak_len_color(s) )},
-    {"name":"Repete 4→5", "max_gales":1,
-     "check": lambda s: (lambda st,lc: (st>=4, lc))( *streak_len_color(s) )},
-    {"name":"Streak curta eco", "max_gales":2,
-     "check": lambda s: (lambda st,lc: (st==2 and (counts_last(s,15)[0]>=8 or counts_last(s,15)[1]>=8), lc))( *streak_len_color(s) )},
-    {"name":"Primeira duplicação", "max_gales":0,
-     "check": lambda s: (lambda st,lc: (st==2 and len(s)%50<2, lc))( *streak_len_color(s) )},
-    {"name":"Streak pós-inércia", "max_gales":1,
-     "check": lambda s: (lambda st,lc: (st>=1 and last_k_colors(s,8).count(lc)==1, lc))( *streak_len_color(s) )},
-
-    {"name":"Alternância 4+ quebra", "max_gales":2,
-     "check": lambda s: (alternancias(s,10)>=4 and streak_len_color(s)[0]>=2, last_color(s))},
-    {"name":"Alternância curta → repetição", "max_gales":1,
-     "check": lambda s: (alternancias(s,6)>=2 and streak_len_color(s)[0]>=2, last_color(s))},
-    {"name":"Alternância falha", "max_gales":1,
-     "check": lambda s: (alternancias(s,8)>=3 and streak_len_color(s)[0]==2, last_color(s))},
-    {"name":"Alternância estendida (≥6)", "max_gales":2,
-     "check": lambda s: (alternancias(s,12)>=6, last_color(s))},
-
-    {"name":"Gap da COR (8+)", "max_gales":2,
-     "check": lambda s: (lambda st,lc: (last_k_colors(s,12).count(lc)==0, lc))( *streak_len_color(s) )},
-    {"name":"Taxa 20 sub-representada", "max_gales":1,
-     "check": lambda s: (lambda r,b: ((r<=8 or b<=8), "R" if r<=8 else "B"))(*counts_last(s,20))},
-    {"name":"Retorno à média (≤40% em 50)", "max_gales":2,
-     "check": lambda s: (lambda r,b: ((r+b>=20 and (r<=0.4*(r+b) or b<=0.4*(r+b))), "R" if r<=0.4*(r+b) else "B"))(*counts_last(s,50))},
-
-    {"name":"Sanduíche (COR-OUTRA-COR)", "max_gales":1,
-     "check": lambda s: (lambda cols: (len(cols)>=3 and cols[-3]==cols[-1]!=cols[-2], cols[-1] if len(cols)>=3 else None))( last_k_colors(s,5) )},
-    {"name":"2x + inversão + 2x", "max_gales":1,
-     "check": lambda s: (lambda cols: (
-        len(cols)>=5 and cols[-5]==cols[-4]!=cols[-3]==cols[-2] and cols[-1]==cols[-2], cols[-1] if len(cols)>=1 else None))( last_k_colors(s,7) )},
-    {"name":"Bloco 2-2-1", "max_gales":2,
-     "check": lambda s: (lambda cols: (
-        len(cols)>=5 and cols[-5]==cols[-4]!=cols[-3]==cols[-2]!=cols[-1], cols[-1] if len(cols)>=1 else None))( last_k_colors(s,6) )},
-    {"name":"Triângulo (OUTRA, COR, OUTRA, COR)", "max_gales":1,
-     "check": lambda s: (lambda cols: (
-        len(cols)>=4 and cols[-4]!=cols[-3]==cols[-1]!=cols[-2] and cols[-3]==cols[-1], cols[-1] if len(cols)>=1 else None))( last_k_colors(s,6) )},
-
-    {"name":"Domínio 20", "max_gales":2,
-     "check": lambda s: (dom_color_20(s) is not None, dom_color_20(s))},
-    {"name":"Confirmação com última cor + densidade", "max_gales":1,
-     "check": lambda s: (lambda r,b,lc: ((lc=="R" and r>=11) or (lc=="B" and b>=11), lc))( *counts_last(s,20), last_color(s) )},
-
-    {"name":"Score 3-de-5 (simulado)", "max_gales":2,
-     "check": lambda s: (lambda lc,st,alt,r20,b20: (
-        sum([1 if st>=2 else 0,
-             1 if alt<=3 else 0,
-             1 if (lc=='R' and r20>=11) or (lc=='B' and b20>=11) else 0,
-             1 if (r20-b20>=4) or (b20-r20>=4) else 0,
-             1 if whites_in_window(s,8)==0 else 0])>=3, lc))(
-                 last_color(s), *streak_len_color(s), *counts_last(s,20))}
-]
-
-# ========================= Seletores =========================
-def selecionar_representante(strats):
-    if not strats: return None
-    if SELECAO_RISCO == "agressivo":
-        return max(strats, key=lambda x: x["max_gales"])
-    return min(strats, key=lambda x: x["max_gales"])
-
 def select_white_with_confluence(seq):
     matches = []
     for strat in WHITE_STRATS:
@@ -292,11 +388,13 @@ def select_white_with_confluence(seq):
             continue
     if len(matches) < CONFLUENCE_MIN_WHITE:
         return None, 0
-    rep = selecionar_representante(matches)
+    rep = min(matches, key=lambda x: x["max_gales"]) if SELECAO_RISCO=="conservador" else max(matches, key=lambda x: x["max_gales"])
     return rep, len(matches)
 
 def select_color_with_confluence(seq):
+    # votos de R/B por estratégias (legado p/ estatística/visual)
     votes = {"R": [], "B": []}
+    COLOR_STRATS = []  # (mantive removido p/ simplificar; podemos reativar depois)
     for strat in COLOR_STRATS:
         try:
             ok, tgt = strat["check"](seq)
@@ -314,29 +412,56 @@ def select_color_with_confluence(seq):
             if dom in ("R","B"):
                 target, conf = dom, len(votes[dom])
     if not target: return None, None, 0
-    rep = selecionar_representante(votes[target])
+    rep = min(votes[target], key=lambda x: x["max_gales"]) if SELECAO_RISCO=="conservador" else max(votes[target], key=lambda x: x["max_gales"])
     return rep, target, conf
 
-# ========================= Probabilidades p/ UI ======================
-def estimate_probs(seq):
-    baseW = 1.0/15.0  # 6.67% base
-    w_gap = gap_white(seq)
-    extraW = 0.0
-    if w_gap >= 18: extraW += 0.03
-    if whites_in_window(seq,10)>=1: extraW += 0.02
-    pW = min(0.40, baseW + extraW)
+# ========================= Probabilidades (IA) ======================
+def _build_ctx_for_ai(seq, confluencia=0, estrats_bits=None):
+    ult = []
+    for v in seq[-40:]:
+        if v == 0: ult.append({"cor":"W","num":0})
+        else:      ult.append({"cor": "R" if is_red(v) else "B", "num": int(v)})
+    lat_ms = int((time.monotonic() - last_ingest_mono) * 1000) if last_ingest_mono is not None else 0
+    now = datetime.now()
+    return {
+        "ultimos": ult,
+        "lat_ms": lat_ms,
+        "hora": now.hour,
+        "dow": now.weekday(),
+        "confluencia": int(confluencia or 0),
+        "estrats_bits": list(estrats_bits or [])
+    }
 
-    r20,b20 = counts_last(seq,20)
-    tot = max(1, r20+b20)
-    pR_raw = (r20+1)/(tot+2)
-    pB_raw = (b20+1)/(tot+2)
-    rem = max(0.0, 1.0 - pW)
-    pR = pR_raw * rem
-    pB = pB_raw * rem
-    s = pW+pR+pB
-    pW,pR,pB = pW/s, pR/s, pB/s
-    rec = max([("W",pW),("R",pR),("B",pB)], key=lambda x: x[1])
-    return {"W":pW,"R":pR,"B":pB,"rec":rec}
+def estimate_probs_ai(seq):
+    if not seq:
+        return {"W":0.066,"R":0.467,"B":0.467,"rec":("B",0.467)}
+    ctx = _build_ctx_for_ai(seq)
+    try:
+        p_red, p_white = learner.predict(ctx)
+        p_white = max(0.01, min(0.40, float(p_white)))
+        p_red   = max(0.05, min(0.94, float(p_red)))
+        p_black = max(0.01, min(0.94, 1.0 - p_red))
+        rem = max(0.0001, 1.0 - p_white)
+        s = (p_red + p_black)
+        if s <= 1e-6:
+            p_red = rem*0.5; p_black = rem*0.5
+        else:
+            p_red   = rem * (p_red / s)
+            p_black = rem * (p_black / s)
+        best = max([("W",p_white),("R",p_red),("B",p_black)], key=lambda x: x[1])
+        return {"W":p_white,"R":p_red,"B":p_black,"rec":best}
+    except Exception:
+        # fallback heurístico simples
+        baseW = 1.0/15.0
+        extraW = 0.03 if gap_white(seq)>=18 else 0.0
+        if whites_in_window(seq,10)>=1: extraW += 0.02
+        pW = min(0.40, baseW + extraW)
+        r20,b20 = counts_last(seq,20); tot=max(1,r20+b20)
+        pR_raw=(r20+1)/(tot+2); pB_raw=(b20+1)/(tot+2)
+        rem=max(0.0,1.0-pW); pR=pR_raw*rem; pB=pB_raw*rem
+        s=pW+pR+pB; pW,pR,pB = pW/s,pR/s,pB/s
+        rec = max([("W",pW),("R",pR),("B",pB)], key=lambda x: x[1])
+        return {"W":pW,"R":pR,"B":pB,"rec":rec}
 
 # ========================= Logs / sinais =========================
 def format_label(target, step, max_gales, conf=None):
@@ -370,11 +495,6 @@ def append_signal_entry(mode, target, step, status="open", came=None,
 
 # ========================= Estatísticas =============================
 def stats_by_strategy():
-    """
-    Retorna um dicionário:
-    { 'Estratégia X': {'entries':N,'win':W,'loss':L,'assert':pct,'pl_sim':valor} }
-    P&L simulado: +1 por WIN, -1 por LOSS (unidade de stake).
-    """
     agg = defaultdict(lambda: {"entries":0,"win":0,"loss":0})
     for s in signals:
         if s.get("status") in ("open","ANALYZING","GALE"):
@@ -406,11 +526,22 @@ def trade_lock_active():
     return open_trade is not None
 
 def try_open_trade_if_needed():
+    # Mantemos seu abridor legado por enquanto (UI/estatística).
+    # Em próxima etapa, trocamos para decisão 100% pela IA com thresholds.
     global open_trade, cool_color, cool_white, trade_counter
     if trade_lock_active() or not bot_on:
         return
     seq = list(history)
     if not seq: return
+
+    # IA: capturar probabilidade para registrar no Regime
+    try:
+        ctx_tmp = _build_ctx_for_ai(seq)
+        p_red, p_white = learner.predict(ctx_tmp)
+        p_major = max(p_white, p_red, 1.0 - p_red)
+        regime.update_pred(float(p_major))
+    except Exception:
+        pass
 
     if mode_selected == "BRANCO":
         if cool_white > 0: return
@@ -430,20 +561,26 @@ def try_open_trade_if_needed():
                                 phase="analyzing", trade_id=trade_counter)
     elif mode_selected == "CORES":
         if cool_color > 0: return
-        rep, tgt, conf = select_color_with_confluence(seq)
-        if rep and tgt:
+        # Escolha por IA: R x B (mantendo confluência mínima simbólica=1)
+        # (para não mudar muito o seu fluxo já rodando)
+        try:
+            p_red, p_white = learner.predict(_build_ctx_for_ai(seq))
+            tgt = "R" if p_red >= (1.0 - p_red) else "B"
+            conf = 1  # placeholder de confluência para UI
             trade_counter += 1
             open_trade = {
                 "id": trade_counter,
                 "type": "color", "target": tgt, "step": 0,
-                "max_gales": rep["max_gales"], "strategy": rep["name"],
+                "max_gales": 2, "strategy": "IA Spectra X",
                 "confluence": conf, "opened_at": len(seq),
                 "opened_at_ts": time.time(),
                 "phase": "analyzing"
             }
             append_signal_entry("CORES",tgt,0,status="ANALYZING",
-                                strategy=rep["name"],max_gales=rep["max_gales"],conf=conf,
+                                strategy="IA Spectra X",max_gales=2,conf=conf,
                                 phase="analyzing", trade_id=trade_counter)
+        except Exception:
+            pass
 
 def process_new_number(n):
     global open_trade, cool_color, cool_white
@@ -472,7 +609,7 @@ def process_new_number(n):
         )
         return
 
-    # Avaliação do resultado
+    # Avaliação do resultado (depende do timing)
     if not EVAL_SAME_SPIN:
         if len(history) <= open_trade["opened_at"]:
             return
@@ -480,25 +617,42 @@ def process_new_number(n):
         if len(history) < open_trade["opened_at"]:
             return
 
+    # WHITE
     if open_trade["type"] == "white":
         hit = (n == 0)
         if hit:
             append_signal_entry("BRANCO","W", open_trade["step"], status="WIN", came=n,
                                 strategy=open_trade["strategy"], max_gales=open_trade["max_gales"],
                                 conf=open_trade.get("confluence"), trade_id=open_trade["id"])
+            # >>> IA UPDATE
+            try:
+                ctx_ai = _build_ctx_for_ai(list(history), confluencia=open_trade.get("confluence"))
+                learner.update(ctx_ai, {"cor_saida": "W"})
+                regime.update_outcome(1)
+            except Exception:
+                pass
             open_trade = None; cool_white = 5
         else:
             if open_trade["step"] >= open_trade["max_gales"]:
                 append_signal_entry("BRANCO","W", open_trade["step"], status="LOSS", came=n,
                                     strategy=open_trade["strategy"], max_gales=open_trade["max_gales"],
                                     conf=open_trade.get("confluence"), trade_id=open_trade["id"])
+                # >>> IA UPDATE
+                try:
+                    ctx_ai = _build_ctx_for_ai(list(history), confluencia=open_trade.get("confluence"))
+                    learner.update(ctx_ai, {"cor_saida": ("R" if is_red(n) else "B")})
+                    regime.update_outcome(0)
+                except Exception:
+                    pass
                 open_trade = None; cool_white = 5
             else:
                 open_trade["step"] += 1
                 append_signal_entry("BRANCO","W", open_trade["step"], status="GALE", came=n,
                                     strategy=open_trade["strategy"], max_gales=open_trade["max_gales"],
                                     conf=open_trade.get("confluence"), trade_id=open_trade["id"])
-    else:  # color
+
+    # COLOR
+    else:
         tgt = open_trade["target"]
         came = color_code(n)
         hit = (n != 0) and (came == tgt)
@@ -506,12 +660,26 @@ def process_new_number(n):
             append_signal_entry("CORES", tgt, open_trade["step"], status="WIN", came=n,
                                 strategy=open_trade["strategy"], max_gales=open_trade["max_gales"],
                                 conf=open_trade.get("confluence"), trade_id=open_trade["id"])
+            # >>> IA UPDATE
+            try:
+                ctx_ai = _build_ctx_for_ai(list(history), confluencia=open_trade.get("confluence"))
+                learner.update(ctx_ai, {"cor_saida": came})
+                regime.update_outcome(1)
+            except Exception:
+                pass
             open_trade = None; cool_color = 2
         else:
             if open_trade["step"] >= open_trade["max_gales"]:
                 append_signal_entry("CORES", tgt, open_trade["step"], status="LOSS", came=n,
                                     strategy=open_trade["strategy"], max_gales=open_trade["max_gales"],
                                     conf=open_trade.get("confluence"), trade_id=open_trade["id"])
+                # >>> IA UPDATE
+                try:
+                    ctx_ai = _build_ctx_for_ai(list(history), confluencia=open_trade.get("confluence"))
+                    learner.update(ctx_ai, {"cor_saida": came})
+                    regime.update_outcome(0)
+                except Exception:
+                    pass
                 open_trade = None; cool_color = 2
             else:
                 open_trade["step"] += 1
@@ -527,7 +695,7 @@ def index():
 @app.route("/state")
 def state():
     seq = list(history)
-    probs = estimate_probs(seq) if seq else {"W":0.066,"R":0.467,"B":0.467,"rec":("B",0.467)}
+    probs = estimate_probs_ai(seq) if seq else {"W":0.066,"R":0.467,"B":0.467,"rec":("B",0.467)}
 
     # Saúde da ingest
     server_time = now_iso()
@@ -538,18 +706,15 @@ def state():
         seconds_since_last = max(0.0, (datetime.now(timezone.utc) - last_ingest_wall).total_seconds())
         live_ok = seconds_since_last < 30.0
     if last_ingest_mono is not None:
-        latency_ms = int((time.monotonic() - last_ingest_mono) * 1000)  # approx desde a última chegada
+        latency_ms = int((time.monotonic() - last_ingest_mono) * 1000)
 
-    # Round/ETA placeholders (não temos relógio do servidor da roleta aqui)
-    round_id = len(seq)   # simples: id incremental local
+    round_id = len(seq)
     eta_ms = None
 
-    # Trava/lock reason
     lock_reason = None
     if STRICT_ONE_AT_A_TIME and open_trade is not None:
         lock_reason = "Aguardando terminar GALES do sinal atual"
 
-    # Estatísticas
     strat_stats = stats_by_strategy()
 
     out = {
@@ -590,9 +755,40 @@ def state():
         "gales_remaining": (open_trade["max_gales"] - open_trade["step"]) if open_trade else None,
 
         # Estatísticas
-        "strategy_stats": strat_stats
+        "strategy_stats": strat_stats,
+
+        # Regime
+        "winrate_60": round(regime.winrate(),3) if regime else None,
+        "market_bad": regime.mercado_ruim() if regime else None
     }
     return jsonify(out)
+
+@app.route("/predict")
+def predict():
+    seq = list(history)
+    ctx = _build_ctx_for_ai(seq, confluencia=open_trade.get("confluence") if open_trade else 0)
+    p_red, p_white = learner.predict(ctx)
+    p_black = max(0.0, 1.0 - p_red)
+    return jsonify({
+        "ok": True,
+        "p_red": round(float(p_red),4),
+        "p_black": round(float(p_black),4),
+        "p_white": round(float(p_white),4),
+        "winrate_60": round(regime.winrate(),4) if regime else None
+    })
+
+@app.route("/stats")
+def stats():
+    wr60 = regime.winrate() if regime else None
+    bad  = regime.mercado_ruim() if regime else None
+    ent  = regime.entropia_alta() if regime else None
+    return jsonify({
+        "ok": True,
+        "winrate_60": wr60,
+        "mercado_ruim": bad,
+        "entropia_alta": ent,
+        "open_trade": open_trade
+    })
 
 @app.route("/ingest", methods=["POST"])
 def ingest():
