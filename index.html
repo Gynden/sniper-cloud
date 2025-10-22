@@ -53,7 +53,6 @@
   </header>
 
   <main>
-    <!-- ESQUERDA -->
     <section class="card col">
       <h2>Últimas Rodadas & Probabilidades</h2>
       <div class="grid" id="lastGrid"></div>
@@ -70,24 +69,20 @@
       </div>
     </section>
 
-    <!-- DIREITA -->
     <section class="card col">
-      <h2>Controle da IA & Configurações</h2>
+      <h2>Controle</h2>
       <div class="row">
         <div><label class="tag">Modo</label>
-          <select id="mode">
-            <option value="neural">neural</option>
-            <option value="hybrid" selected>hybrid</option>
-            <option value="manual">manual</option>
-          </select>
+          <select id="mode"><option value="neural">neural</option><option value="hybrid" selected>hybrid</option><option value="manual">manual</option></select>
         </div>
         <div><label class="tag">Stake (R$)</label><input id="stake" type="number" step="0.01" min="0.1" value="2.00"/></div>
         <div><label class="tag">Max Gales</label><input id="gales" type="number" step="1" min="0" value="2"/></div>
       </div>
       <div class="row" style="margin-top:8px">
-        <div><label class="tag">Confluência Cor (min votos x/10)</label><input id="confColor" type="number" step="1" min="1" value="2"/></div>
-        <div><label class="tag">Confluência White (min votos x/10)</label><input id="confWhite" type="number" step="1" min="1" value="2"/></div>
-        <div><label class="tag">Confiança mínima (%)</label><input id="confMin" type="number" step="1" min="50" max="95" value="62"/></div>
+        <div><label class="tag">Confiança mínima (%)</label><input id="confMin" type="number" step="1" min="50" max="95" value="60"/></div>
+        <div><label class="tag">Mapeamento invertido?</label>
+          <select id="invert"><option value="false">não</option><option value="true">sim</option></select>
+        </div>
       </div>
       <div class="row" style="margin-top:12px">
         <button id="save">Salvar Config</button>
@@ -116,11 +111,11 @@
 </div>
 
 <script>
-  const API = ""; // mesma origem
   const $ = (id)=>document.getElementById(id);
   const money = v => "R$ " + (v||0).toFixed(2).replace(".",",");
 
   async function j(url, opts){ const r = await fetch(url, opts); return await r.json(); }
+
   function renderBalls(arr){
     const g = $("lastGrid"); g.innerHTML="";
     arr.slice(-10).forEach(c=>{
@@ -148,21 +143,19 @@
   function maybeAppendFinished(op){
     if(!op || !op.result) return;
     const id = op.created_at;
-    if(id && id !== lastFinishedId){
-      $("opsBody").prepend(row(op));
-      lastFinishedId = id;
-    }
+    if(id && id !== lastFinishedId){ $("opsBody").prepend(row(op)); lastFinishedId = id; }
   }
+
   async function refresh(){
     try{
       const s = await j(`/api/state`);
       $("modeLabel").textContent  = s.config.mode;
       $("stakeLabel").textContent = (s.config.stake||0).toFixed(2);
       $("galesLabel").textContent = s.config.max_gales;
-      $("sigTotal").textContent = s.metrics.total_signals;
-      $("wins").textContent     = s.metrics.wins;
-      $("losses").textContent   = s.metrics.losses;
-      $("bank").textContent     = money(s.metrics.bank_result);
+      $("sigTotal").textContent = s.metrics.total_signals||0;
+      $("wins").textContent     = s.metrics.wins||0;
+      $("losses").textContent   = s.metrics.losses||0;
+      $("bank").textContent     = money(s.metrics.bank_result||0);
       $("wrLabel").textContent  = Math.round((s.metrics.winrate||0)*100)+"%";
       renderBalls(s.history_tail||[]);
       const c10 = s.counts10||{red:0,black:0,white:0,n:1};
@@ -173,28 +166,31 @@
       renderSignal(s.active_signal);
       if(s.active_signal && s.active_signal.status==="finished"){ maybeAppendFinished(s.active_signal); }
       $("apiStatus").textContent="Online";
-    }catch(e){ $("apiStatus").textContent="Offline"; }
+      $("invert").value = s.config.invert_mapping ? "true" : "false";
+    }catch{ $("apiStatus").textContent="Offline"; }
   }
+
   async function save(){
     const body = {
       mode: $("mode").value,
       stake: parseFloat($("stake").value)||2,
       max_gales: parseInt($("gales").value)||0,
-      confluence_min_color: parseInt($("confColor").value)||2,
-      confluence_min_white: parseInt($("confWhite").value)||2,
-      confidence_min: (parseInt($("confMin").value)||62)/100.0
+      confidence_min: (parseInt($("confMin").value)||60)/100.0,
+      invert_mapping: $("invert").value==="true"
     };
     const r = await j(`/api/config`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     if(r.ok) refresh();
   }
   async function resetAll(){ const r = await j(`/api/reset`, {method:"POST"}); if(r.ok){ $("opsBody").innerHTML=""; lastFinishedId=null; refresh(); } }
   async function demo(){
-    const u = Math.random(); const result = (u<0.45)?"red":(u<0.90)?"black":"white";
-    await j(`/api/push_round`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({result})});
+    const u = Math.random();
+    const number = (u<0.45)?(1+Math.floor(Math.random()*7)):(u<0.90)?(8+Math.floor(Math.random()*7)):0;
+    await j(`/api/push_round`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({number})});
     refresh();
   }
+
   $("save").onclick = save; $("reset").onclick = resetAll; $("demo").onclick = demo;
-  refresh(); setInterval(refresh,1000);
+  refresh(); setInterval(refresh, 1000);
 </script>
 </body>
 </html>
