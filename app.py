@@ -6,38 +6,25 @@ from typing import Deque, Dict, Optional, Any, List
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
-# ===== Flask: serve SPA pela raiz e expõe API =====
 app = Flask(__name__, static_url_path="", static_folder=".", template_folder=".")
-# CORS liberado só para /api/* (SubBot roda na aba da Blaze, outra origem)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # ===== Config =====
-HISTORY_MAX            = 600
-SHOW_LAST              = 50
-DEFAULT_STAKE          = 2.00
-DEFAULT_MAX_GALES      = 2
-DEFAULT_MODE           = "hybrid"
-CONFLUENCE_MIN_COLOR   = 2
-CONFLUENCE_MIN_WHITE   = 2
-CONFIDENCE_MIN         = 0.62
-EW_LEARN_RATE          = 0.12
-WHITE_ODDS             = 14.0
-COLOR_ODDS             = 1.0
+HISTORY_MAX, SHOW_LAST = 600, 50
+DEFAULTS = dict(stake=2.0, max_gales=2, mode="hybrid",
+                confluence_min_color=2, confluence_min_white=2, confidence_min=0.62)
+WHITE_ODDS, COLOR_ODDS = 14.0, 1.0
+EW_LEARN_RATE = 0.12
 
 # ===== Estado =====
-history: Deque[str] = deque(maxlen=HISTORY_MAX)    # "red" | "black" | "white"
+history: Deque[str] = deque(maxlen=HISTORY_MAX)    # "red"|"black"|"white"
 metrics = {
     "total_signals": 0, "wins": 0, "losses": 0, "bank_result": 0.0,
     "per_color": {"red":{"signals":0,"wins":0,"losses":0},
                   "black":{"signals":0,"wins":0,"losses":0},
                   "white":{"signals":0,"wins":0,"losses":0}},
 }
-config = {
-    "stake": DEFAULT_STAKE, "max_gales": DEFAULT_MAX_GALES, "mode": DEFAULT_MODE,
-    "confluence_min_color": CONFLUENCE_MIN_COLOR,
-    "confluence_min_white": CONFLUENCE_MIN_WHITE,
-    "confidence_min": CONFIDENCE_MIN,
-}
+config = DEFAULTS.copy()
 active_signal: Optional[Dict] = None
 
 # ===== IA =====
@@ -47,14 +34,17 @@ strategy_weights: Dict[str, float] = {
 }
 
 def now_iso(): return datetime.utcnow().isoformat()+"Z"
+
 def softmax(scores):
     if not scores: return {}
     m = max(scores.values()); exps = {k: math.exp(v-m) for k,v in scores.items()}
     tot = sum(exps.values()) or 1.0
     return {k: v/tot for k,v in exps.items()}
+
 def normalize_votes(votes):
     s = sum(max(0.0, x) for x in votes.values()) or 1.0
     return {k: max(0.0, v)/s for k, v in votes.items()}
+
 def recent_counts(n=10):
     last = list(history)[-n:]
     return {"red": last.count("red"), "black": last.count("black"), "white": last.count("white"), "n": len(last)}
@@ -93,18 +83,22 @@ def strat_time_window_bias():
     if m%10 in (3,4,5): return {"black":0.8}
     if m%10 in (6,7):   return {"white":0.6}
     return {}
+
 STRATEGY_FUNCS = {
     "repeat_three": strat_repeat_three, "anti_chop": strat_anti_chop,
     "cluster_bias": strat_cluster_bias, "recent_white_near": strat_recent_white_near,
     "long_streak_break": strat_long_streak_break, "time_window_bias": strat_time_window_bias,
 }
+
 def compute_votes():
     raw=defaultdict(float)
     for name,func in STRATEGY_FUNCS.items():
         out=func(); w=strategy_weights.get(name,1.0)
         for k,v in out.items(): raw[k]+=v*w
     return normalize_votes(raw)
+
 def odds_for(color): return WHITE_ODDS if color=="white" else COLOR_ODDS
+
 def apply_learning(win, signal):
     global strategy_weights
     delta = EW_LEARN_RATE if win else -EW_LEARN_RATE
@@ -112,6 +106,7 @@ def apply_learning(win, signal):
     for name in strategy_weights.keys():
         jitter = (random.random()-0.5)*0.02
         strategy_weights[name] = max(0.1, strategy_weights[name] + delta*(0.5+contrib) + jitter)
+
 def decide_signal():
     global active_signal
     if active_signal and active_signal.get("status")=="running": return None
@@ -133,6 +128,7 @@ def decide_signal():
     metrics["total_signals"] += 1
     metrics["per_color"][best]["signals"] += 1
     return active_signal
+
 def evaluate_active_signal(new_result):
     global active_signal
     s=active_signal
@@ -153,7 +149,17 @@ def evaluate_active_signal(new_result):
             metrics["bank_result"] -= s["stake"]*(s["gale_step"]+1)
             apply_learning(False, s)
 
-# ===== Rotas =====
+# ===== util: mapeia número -> cor (padrão da Blaze Double)
+# Por padrão: 0=white, 1–7=red, 8–14=black (se seu lobby for invertido, troque RED_RANGE/BLACK_RANGE)
+RED_RANGE   = set(range(1,8))    # 1..7
+BLACK_RANGE = set(range(8,15))   # 8..14
+def number_to_color(n: int) -> Optional[str]:
+    if n == 0: return "white"
+    if n in RED_RANGE: return "red"
+    if n in BLACK_RANGE: return "black"
+    return None
+
+# ===== rotas =====
 @app.get("/")
 def root(): return send_from_directory(".", "index.html")
 
@@ -177,9 +183,17 @@ def get_state():
 @app.post("/api/push_round")
 def push_round():
     data = request.get_json(force=True, silent=True) or {}
+    # aceita: {"result":"red|black|white"} OU {"number": 0..14}
     result = (data.get("result") or "").lower().strip()
+    if not result:
+        if "number" in data:
+            try:
+                n = int(data["number"])
+                result = number_to_color(n) or ""
+            except: result = ""
     if result not in ("red","black","white"):
-        return jsonify({"ok": False, "error": "result must be red|black|white"}), 400
+        return jsonify({"ok": False, "error": "send {result:'red|black|white'} or {number:0..14}"}), 400
+
     history.append(result)
     if active_signal and active_signal.get("status")=="running":
         evaluate_active_signal(result)
@@ -190,16 +204,24 @@ def push_round():
 @app.post("/api/push_many")
 def push_many():
     data = request.get_json(force=True, silent=True) or {}
-    items: List[str] = data.get("results") or []
+    items: List[Any] = data.get("results") or []
     accepted = 0
     for r in items:
-        r = (str(r) or "").lower().strip()
-        if r in ("red","black","white"):
-            history.append(r); accepted += 1
-            if active_signal and active_signal.get("status")=="running":
-                evaluate_active_signal(r)
-            if not active_signal or active_signal.get("status")!="running":
-                decide_signal()
+        color = None
+        if isinstance(r, str):
+            rr = r.lower().strip()
+            color = rr if rr in ("red","black","white") else None
+        else:
+            try:
+                color = number_to_color(int(r))
+            except:
+                color = None
+        if not color: continue
+        history.append(color); accepted += 1
+        if active_signal and active_signal.get("status")=="running":
+            evaluate_active_signal(color)
+        if not active_signal or active_signal.get("status")!="running":
+            decide_signal()
     return jsonify({"ok": True, "accepted": accepted})
 
 @app.post("/api/config")
