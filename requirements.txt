@@ -1,6 +1,4 @@
-Flask==3.0.0
+flask==3.0.3
 flask-cors==4.0.0
 gunicorn==21.2.0
-numpy==1.26.4
-# scikit-learn é opcional; só instale se quiser o modelo com SGD online:
-# scikit-learn==1.4.2
+requests==2.32.3
