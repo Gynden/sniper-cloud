@@ -41,8 +41,13 @@
   .bigBadge{font-size:28px}
   .gaGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
   @media (max-width:700px){.gaGrid{grid-template-columns:repeat(2,1fr)}}
-  .controls{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}
-  .sel{background:#0e1021;border:1px solid var(--stroke);color:var(--text);border-radius:12px;padding:10px 12px}
+  /* segmented control */
+  .seg{display:inline-flex;background:#0e1021;border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
+  .seg button{padding:8px 14px;border:0;background:transparent;color:var(--muted);font-weight:700;cursor:pointer;transition:all .2s ease}
+  .seg button:not(:last-child){border-right:1px solid var(--stroke)}
+  .seg button.active{color:#fff;background:linear-gradient(135deg,rgba(159,91,255,.25),rgba(0,179,255,.18))}
+  .saveNote{margin-left:10px;font-size:12px;color:var(--muted)}
+  .toast{font-size:12px;color:#a7f3d0;margin-left:8px}
 </style>
 </head>
 <body>
@@ -62,15 +67,13 @@
       <h2>Últimas Rodadas & Probabilidades</h2>
       <div class="grid" id="lastGrid"></div>
 
-      <div class="controls">
-        <label class="tag" for="modeSel">Modo de Entrada:</label>
-        <select id="modeSel" class="sel" title="all / colors_only / white_only / alternate">
-          <option value="all">All (padrão)</option>
-          <option value="colors_only">Só cores (red/black)</option>
-          <option value="white_only">Só branco</option>
-          <option value="alternate">Alternar RED/BLACK</option>
-        </select>
-        <button id="saveModeBtn" style="width:auto;padding:10px 14px">Salvar modo</button>
+      <div class="row" style="align-items:center;gap:12px;margin-top:8px">
+        <span class="tag">Modo de Operação:</span>
+        <div class="seg" id="modeSeg">
+          <button data-mode="colors">🎯 Cores (Red/Black)</button>
+          <button data-mode="white">⚪ Branco</button>
+        </div>
+        <span id="saveToast" class="saveNote"></span>
       </div>
 
       <div style="margin-top:12px" class="row">
@@ -103,7 +106,6 @@
       </div>
     </section>
 
-    <!-- Auto-Strategy -->
     <section class="card col">
       <h2>Auto-Strategy (GA)</h2>
       <div class="gaGrid">
@@ -137,6 +139,34 @@
   const $=(id)=>document.getElementById(id);
   const money=v=>"R$ "+(v||0).toFixed(2).replace(".",",");
   async function j(path,opts){ const r=await fetch(API+path,opts); return await r.json(); }
+
+  // --- segmented control (2 modos) ---
+  function renderMode(active){
+    document.querySelectorAll("#modeSeg button").forEach(btn=>{
+      btn.classList.toggle("active", btn.dataset.mode===active);
+    });
+  }
+  async function saveMode(mode){
+    const toast = $("saveToast");
+    toast.textContent = "Salvando...";
+    try{
+      await j(`/api/config`, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({entry_mode: mode})
+      });
+      toast.innerHTML = '<span class="toast">Salvo ✓</span>';
+      setTimeout(()=> toast.textContent="", 2000);
+      renderMode(mode);
+    }catch(e){
+      toast.textContent = "Erro ao salvar";
+    }
+  }
+  $("modeSeg").addEventListener("click", (ev)=>{
+    const btn = ev.target.closest("button[data-mode]");
+    if(!btn) return;
+    saveMode(btn.dataset.mode);
+  });
 
   function renderBalls(arr){
     const g=$("lastGrid"); g.innerHTML="";
@@ -198,8 +228,8 @@
     try{ await j(`/api/health`); $("apiStatus").textContent="Online"; }catch(e){ $("apiStatus").textContent="Offline"; return; }
     try{
       const s=await j(`/api/state`);
-      // preencher select de modo
-      $("modeSel").value = s.config?.entry_mode || "all";
+      // aplica modo atual
+      renderMode(s.config?.entry_mode || "colors");
 
       $("stakeLabel").textContent=(s.config?.stake||2).toFixed(2);
       $("galesLabel").textContent=s.config?.max_gales||2;
@@ -238,15 +268,6 @@
   }
   $("confirmBtn").onclick=confirmEntry;
   window.addEventListener("keydown",e=>{ if(e.key==="Enter" && !$("confirmBtn").disabled){ confirmEntry(); } });
-
-  // salvar modo
-  $("saveModeBtn").onclick = async ()=>{
-    const mode = $("modeSel").value;
-    try{
-      await j(`/api/config`, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({entry_mode: mode})});
-      refresh();
-    }catch(e){}
-  };
 
   refresh(); setInterval(refresh,1200);
 </script>
