@@ -29,14 +29,14 @@
   .progress>i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--neon),var(--neon2));box-shadow:0 0 14px rgba(159,91,255,.45)}
   .tag{font-size:12px;color:var(--muted)}
   table{width:100%;border-collapse:collapse} th,td{padding:10px;border-bottom:1px solid var(--stroke);font-size:13px} th{text-align:left;color:#b9c3ff} tr:last-child td{border-bottom:none}
-  .pill{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:#0e1021;border:1px solid var(--stroke);gap:6px;font-size:12px}
-  input[type="number"],select,button{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--stroke);background:#0f1226;color:#e7eaff;font:inherit}
-  button{cursor:pointer;font-weight:800;border:0;background:linear-gradient(135deg,rgba(159,91,255,.95),rgba(0,179,255,.9));color:#fff;box-shadow:0 10px 30px rgba(0,179,255,.18),0 0 0 1px rgba(255,255,255,.04) inset}
-  button.ghost{background:#0e1021;color:#e7eaff;border:1px solid var(--stroke);box-shadow:none}
+  .pill{display:inline-flex;align-items:center;padding:6px 14px;border-radius:999px;background:#0e1021;border:1px solid var(--stroke);gap:8px;font-weight:800}
+  button{width:100%;padding:14px 16px;border-radius:12px;border:0;cursor:pointer;font-weight:900;letter-spacing:.2px;background:linear-gradient(135deg,rgba(159,91,255,.95),rgba(0,179,255,.9));color:#fff;box-shadow:0 10px 30px rgba(0,179,255,.18),0 0 0 1px rgba(255,255,255,.04) inset}
+  button[disabled]{opacity:.6;cursor:not-allowed}
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
   @media (max-width:700px){.kpis{grid-template-columns:repeat(2,1fr)}}
   .kpi{background:linear-gradient(180deg,#12132a,#0d1022);border:1px solid var(--stroke);border-radius:14px;padding:14px;box-shadow:var(--shadow)}
   .kpi .v{font-size:22px;font-weight:900}.kpi .l{font-size:12px;color:var(--muted)}
+  .bigBadge{font-size:28px}
 </style>
 </head>
 <body>
@@ -45,7 +45,6 @@
     <div class="brand"><div class="logo"></div><h1>Spectra X — Neural Trader (Classic)</h1></div>
     <div class="status">
       <span class="chip">API: <b id="apiStatus">Online</b></span>
-      <span class="chip">Modo: <b id="modeLabel">hybrid</b></span>
       <span class="chip">Stake: R$ <b id="stakeLabel">2.00</b></span>
       <span class="chip">Gales: <b id="galesLabel">2</b></span>
       <span class="chip">Winrate: <b id="wrLabel">0%</b></span>
@@ -70,30 +69,15 @@
     </section>
 
     <section class="card col">
-      <h2>Controle</h2>
-      <div class="row">
-        <div><label class="tag">Modo</label>
-          <select id="mode"><option value="neural">neural</option><option value="hybrid" selected>hybrid</option><option value="manual">manual</option></select>
+      <h2>Entrada Recomendada</h2>
+      <div id="entryBox" style="display:flex;flex-direction:column;gap:12px">
+        <div class="pill bigBadge" id="entryBadge">—</div>
+        <div>
+          <div class="progress"><i id="entryBar"></i></div>
+          <span class="tag" id="entryConf">confiança: 0%</span>
         </div>
-        <div><label class="tag">Stake (R$)</label><input id="stake" type="number" step="0.01" min="0.1" value="2.00"/></div>
-        <div><label class="tag">Max Gales</label><input id="gales" type="number" step="1" min="0" value="2"/></div>
-      </div>
-      <div class="row" style="margin-top:8px">
-        <div><label class="tag">Confiança mínima (%)</label><input id="confMin" type="number" step="1" min="50" max="95" value="60"/></div>
-        <div><label class="tag">Mapeamento invertido?</label>
-          <select id="invert"><option value="false">não</option><option value="true">sim</option></select>
-        </div>
-      </div>
-      <div class="row" style="margin-top:12px">
-        <button id="save">Salvar Config</button>
-        <button id="reset" class="ghost">Resetar Histórico</button>
-        <button id="demo" class="ghost">Simular Rodada</button>
-      </div>
-
-      <div style="margin-top:16px">
-        <div class="pill">Sinal Ativo</div>
-        <div class="row" style="margin-top:8px">
-          <div class="col"><div class="kpi"><div class="v" id="sigColor">—</div><div class="l">Cor / Confiança</div></div></div>
+        <button id="confirmBtn" disabled>Confirmar entrada (Enter)</button>
+        <div class="row" style="margin-top:6px">
           <div class="col"><div class="kpi"><div class="v" id="sigGale">—</div><div class="l">Gale (atual / máx)</div></div></div>
           <div class="col"><div class="kpi"><div class="v" id="sigStatus">—</div><div class="l">Status</div></div></div>
         </div>
@@ -111,86 +95,82 @@
 </div>
 
 <script>
-  const $ = (id)=>document.getElementById(id);
-  const money = v => "R$ " + (v||0).toFixed(2).replace(".",",");
+  const $=(id)=>document.getElementById(id);
+  const money=v=>"R$ "+(v||0).toFixed(2).replace(".",",");
 
-  async function j(url, opts){ const r = await fetch(url, opts); return await r.json(); }
+  async function j(url,opts){const r=await fetch(url,opts);return await r.json();}
 
   function renderBalls(arr){
-    const g = $("lastGrid"); g.innerHTML="";
+    const g=$("lastGrid"); g.innerHTML="";
     arr.slice(-10).forEach(c=>{
-      const b = document.createElement("div");
-      b.className = "ball " + (c==="red"?"b-red":c==="black"?"b-black":"b-white");
-      b.textContent = c==="white"?"W":(c==="red"?"R":"B");
+      const b=document.createElement("div");
+      b.className="ball "+(c==="red"?"b-red":c==="black"?"b-black":"b-white");
+      b.textContent=c==="white"?"W":(c==="red"?"R":"B");
       g.appendChild(b);
     });
   }
-  function renderSignal(sig){
-    if(!sig){ $("sigColor").textContent="—"; $("sigGale").textContent="—"; $("sigStatus").textContent="—"; return; }
-    $("sigColor").textContent = (sig.color||"—").toUpperCase()+" | "+((sig.confidence||0)*100).toFixed(0)+"%";
-    $("sigGale").textContent  = (sig.gale_step||0) + " / " + (sig.max_gales||0);
-    $("sigStatus").textContent = sig.status||"—";
+
+  function setEntry(color, conf, gale, maxg, status, confirmed){
+    const badge=$("entryBadge");
+    if(!color){ badge.textContent="—"; $("entryBar").style.width="0%"; $("entryConf").textContent="confiança: 0%"; $("confirmBtn").disabled=true; $("sigGale").textContent="—"; $("sigStatus").textContent="—"; return; }
+    const label = color.toUpperCase();
+    badge.textContent = `ENTRAR: ${label}`;
+    badge.style.borderColor = color==="white"?"#9f5bff":(color==="red"?"#ef4444":"#cbd5e1");
+    $("entryBar").style.width = Math.round(conf*100)+"%";
+    $("entryConf").textContent = "confiança: "+Math.round(conf*100)+"%";
+    $("sigGale").textContent = (gale||0)+"/"+(maxg||0);
+    $("sigStatus").textContent = confirmed ? "confirmado" : (status || "—");
+    $("confirmBtn").disabled = confirmed || status!=="running";
+    $("confirmBtn").textContent = confirmed ? "Confirmado ✓" : "Confirmar entrada (Enter)";
   }
+
   function row(op){
-    const tr = document.createElement("tr");
-    const t = new Date(op.created_at||Date.now()).toLocaleTimeString();
-    tr.innerHTML = `<td>${t}</td><td><span class="pill">${(op.color||"").toUpperCase()}</span></td>
+    const tr=document.createElement("tr");
+    const t=new Date(op.created_at||Date.now()).toLocaleTimeString();
+    tr.innerHTML=`<td>${t}</td><td><span class="pill">${(op.color||"").toUpperCase()}</span></td>
       <td>${((op.confidence||0)*100).toFixed(0)}%</td><td>${op.gale_step||0}/${op.max_gales||0}</td>
-      <td>${op.result ? (op.result==="WIN"?"✅ WIN":"❌ LOSS") : "—"}</td>`;
+      <td>${op.result ? (op.result==="WIN"?"✅ WIN":"❌ LOSS") : (op.confirmed?"✓ Confirmado":"—")}</td>`;
     return tr;
   }
-  let lastFinishedId = null;
+  let lastFinishedId=null;
   function maybeAppendFinished(op){
-    if(!op || !op.result) return;
-    const id = op.created_at;
-    if(id && id !== lastFinishedId){ $("opsBody").prepend(row(op)); lastFinishedId = id; }
+    if(!op||!op.result)return;
+    const id=op.created_at;
+    if(id && id!==lastFinishedId){$("opsBody").prepend(row(op)); lastFinishedId=id;}
   }
 
   async function refresh(){
     try{
-      const s = await j(`/api/state`);
-      $("modeLabel").textContent  = s.config.mode;
-      $("stakeLabel").textContent = (s.config.stake||0).toFixed(2);
-      $("galesLabel").textContent = s.config.max_gales;
-      $("sigTotal").textContent = s.metrics.total_signals||0;
-      $("wins").textContent     = s.metrics.wins||0;
-      $("losses").textContent   = s.metrics.losses||0;
-      $("bank").textContent     = money(s.metrics.bank_result||0);
-      $("wrLabel").textContent  = Math.round((s.metrics.winrate||0)*100)+"%";
+      const s=await j(`/api/state`);
+      $("stakeLabel").textContent=(s.config.stake||0).toFixed(2);
+      $("galesLabel").textContent=s.config.max_gales;
+      $("sigTotal").textContent=s.metrics.total_signals||0;
+      $("wins").textContent=s.metrics.wins||0;
+      $("losses").textContent=s.metrics.losses||0;
+      $("bank").textContent=money(s.metrics.bank_result||0);
+      $("wrLabel").textContent=Math.round((s.metrics.winrate||0)*100)+"%";
       renderBalls(s.history_tail||[]);
-      const c10 = s.counts10||{red:0,black:0,white:0,n:1};
-      const pr=c10.red/(c10.n||1), pb=c10.black/(c10.n||1), pw=c10.white/(c10.n||1);
-      const sum=(pr+pb+pw)||1; const nr=pr/sum, nb=pb/sum, nw=pw/sum;
-      const set=(id,v,txt)=>{ $(id).style.width = Math.round(v*100)+"%"; $(txt).textContent = Math.round(v*100)+"%"; };
-      set("pRed",nr,"pRedTxt"); set("pBlack",nb,"pBlackTxt"); set("pWhite",nw,"pWhiteTxt");
-      renderSignal(s.active_signal);
-      if(s.active_signal && s.active_signal.status==="finished"){ maybeAppendFinished(s.active_signal); }
+
+      const a=s.active_signal;
+      if(a){ setEntry(a.color,a.confidence,a.gale_step,a.max_gales,a.status,a.confirmed); if(a.status==="finished"){ maybeAppendFinished(a);} }
+      else{ setEntry(null,0,0,0,"—",false); }
+
       $("apiStatus").textContent="Online";
-      $("invert").value = s.config.invert_mapping ? "true" : "false";
-    }catch{ $("apiStatus").textContent="Offline"; }
+    }catch(e){$("apiStatus").textContent="Offline";}
   }
 
-  async function save(){
-    const body = {
-      mode: $("mode").value,
-      stake: parseFloat($("stake").value)||2,
-      max_gales: parseInt($("gales").value)||0,
-      confidence_min: (parseInt($("confMin").value)||60)/100.0,
-      invert_mapping: $("invert").value==="true"
-    };
-    const r = await j(`/api/config`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-    if(r.ok) refresh();
-  }
-  async function resetAll(){ const r = await j(`/api/reset`, {method:"POST"}); if(r.ok){ $("opsBody").innerHTML=""; lastFinishedId=null; refresh(); } }
-  async function demo(){
-    const u = Math.random();
-    const number = (u<0.45)?(1+Math.floor(Math.random()*7)):(u<0.90)?(8+Math.floor(Math.random()*7)):0;
-    await j(`/api/push_round`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({number})});
-    refresh();
+  async function confirmEntry(){
+    try{
+      const r=await j(`/api/confirm`,{method:"POST"});
+      if(r.ok){ refresh(); }
+    }catch(e){}
   }
 
-  $("save").onclick = save; $("reset").onclick = resetAll; $("demo").onclick = demo;
-  refresh(); setInterval(refresh, 1000);
+  $("confirmBtn").onclick=confirmEntry;
+  // atalho: Enter
+  window.addEventListener("keydown",e=>{ if(e.key==="Enter" && !$("confirmBtn").disabled){ confirmEntry(); } });
+
+  refresh(); setInterval(refresh,1000);
 </script>
 </body>
 </html>
