@@ -39,6 +39,8 @@
   .kpi{background:#0e1021;border:1px solid var(--stroke);border-radius:14px;padding:14px}
   .kpi .v{font-size:22px;font-weight:900}.kpi .l{font-size:12px;color:var(--muted)}
   .bigBadge{font-size:28px}
+  .gaGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  @media (max-width:700px){.gaGrid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
@@ -74,6 +76,7 @@
       <h2>Entrada Recomendada</h2>
       <div id="entryBox" style="display:flex;flex-direction:column;gap:12px">
         <div class="pill bigBadge" id="entryBadge">—</div>
+        <div class="tag" id="entrySource">Fonte: —</div>
         <div>
           <div class="progress"><i id="entryBar"></i></div>
           <span class="tag" id="entryConf">confiança: 0%</span>
@@ -83,6 +86,19 @@
           <div class="col"><div class="kpi"><div class="v" id="sigGale">—</div><div class="l">Gale (atual / máx)</div></div></div>
           <div class="col"><div class="kpi"><div class="v" id="sigStatus">—</div><div class="l">Status</div></div></div>
         </div>
+      </div>
+    </section>
+
+    <!-- Painel Auto-Strategy (GA) -->
+    <section class="card col">
+      <h2>Auto-Strategy (GA)</h2>
+      <div class="gaGrid">
+        <div class="kpi"><div class="v" id="gaActive">—</div><div class="l">Ativa (id)</div></div>
+        <div class="kpi"><div class="v" id="gaType">—</div><div class="l">Tipo</div></div>
+        <div class="kpi"><div class="v" id="gaScore">—</div><div class="l">Score</div></div>
+        <div class="kpi"><div class="v" id="gaGen">—</div><div class="l">Geração</div></div>
+        <div class="kpi"><div class="v" id="gaPool">—</div><div class="l">Pool</div></div>
+        <div class="kpi"><div class="v" id="gaSource">—</div><div class="l">Fonte do Sinal</div></div>
       </div>
     </section>
 
@@ -117,9 +133,30 @@
       b.textContent=c==="white"?"W":(c==="red"?"R":"B"); g.appendChild(b);
     });
   }
-  function setEntry(color,conf,gale,maxg,status,confirmed){
+
+  // Atualiza as barras de probabilidade com base em s.active_signal.probs (Spectra)
+  function setProbs(probs){
+    const pr = Math.round(((probs?.red)||0)*100);
+    const pb = Math.round(((probs?.black)||0)*100);
+    const pw = Math.round(((probs?.white)||0)*100);
+    $("pRed").style.width = pr+"%";   $("pRedTxt").textContent = pr+"%";
+    $("pBlack").style.width = pb+"%"; $("pBlackTxt").textContent = pb+"%";
+    $("pWhite").style.width = pw+"%"; $("pWhiteTxt").textContent = pw+"%";
+  }
+
+  function setEntry(color,conf,gale,maxg,status,confirmed,source,probs){
     const badge=$("entryBadge");
-    if(!color){ badge.textContent="—"; $("entryBar").style.width="0%"; $("entryConf").textContent="confiança: 0%"; $("confirmBtn").disabled=true; $("sigGale").textContent="—"; $("sigStatus").textContent="—"; return; }
+    if(!color){
+      badge.textContent="—";
+      $("entryBar").style.width="0%";
+      $("entryConf").textContent="confiança: 0%";
+      $("confirmBtn").disabled=true;
+      $("sigGale").textContent="—";
+      $("sigStatus").textContent="—";
+      $("entrySource").textContent = "Fonte: —";
+      setProbs(null);
+      return;
+    }
     badge.textContent=`ENTRAR: ${color.toUpperCase()}`;
     $("entryBar").style.width=Math.round(conf*100)+"%";
     $("entryConf").textContent="confiança: "+Math.round(conf*100)+"%";
@@ -127,7 +164,11 @@
     $("sigStatus").textContent=confirmed?"confirmado":(status||"—");
     $("confirmBtn").disabled=confirmed||status!=="running";
     $("confirmBtn").textContent = confirmed ? "Confirmado ✓" : "Confirmar entrada (Enter)";
+    $("entrySource").textContent = "Fonte: " + (source || "—");
+    // Probs: só preenche quando vier do Spectra (red/black/white). Em GA, mostra 0/0/0.
+    setProbs(source==="spectra_ai" ? probs : null);
   }
+
   function row(op){
     const tr=document.createElement("tr");
     const t=new Date(op.created_at||Date.now()).toLocaleTimeString();
@@ -152,13 +193,36 @@
       $("bank").textContent=money(s.metrics?.bank_result||0);
       $("wrLabel").textContent=Math.round((s.metrics?.winrate||0)*100)+"%";
       renderBalls(s.history_tail||[]);
+
+      // Auto-Strategy dashboard
+      const ga = s.auto_strategy || {};
+      const active = ga.active || null;
+      $("gaActive").textContent = active ? (active.id || "—") : "—";
+      $("gaType").textContent = active ? (active.type || "—") : "—";
+      $("gaScore").textContent = ga.active_score!=null ? String(ga.active_score) : "—";
+      $("gaGen").textContent = ga.generation!=null ? String(ga.generation) : "—";
+      $("gaPool").textContent = ga.pool_size!=null ? String(ga.pool_size) : "—";
+
       const a=s.active_signal;
-      if(a){ setEntry(a.color,a.confidence,a.gale_step,a.max_gales,a.status,a.confirmed); if(a.status==="finished"){ maybeAppendFinished(a);} }
-      else{ setEntry(null,0,0,0,"—",false); }
+      // fonte atual do sinal (GA ou Spectra)
+      const src = a?.source || (active ? "auto_strategy" : "spectra_ai");
+      $("gaSource").textContent = src;
+
+      if(a){
+        setEntry(a.color,a.confidence,a.gale_step,a.max_gales,a.status,a.confirmed,src,a.probs);
+        if(a.status==="finished"){ maybeAppendFinished(a); }
+      } else {
+        setEntry(null,0,0,0,"—",false,null,null);
+      }
     }catch(e){ $("apiStatus").textContent="Offline"; }
   }
 
-  async function confirmEntry(){ try{ const r=await j(`/api/confirm`,{method:"POST"}); if(r.ok){ refresh(); } }catch(e){} }
+  async function confirmEntry(){
+    try{
+      const r=await j(`/api/confirm`,{method:"POST"});
+      if(r.ok){ refresh(); }
+    }catch(e){}
+  }
   $("confirmBtn").onclick=confirmEntry;
   window.addEventListener("keydown",e=>{ if(e.key==="Enter" && !$("confirmBtn").disabled){ confirmEntry(); } });
 
