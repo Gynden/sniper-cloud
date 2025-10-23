@@ -32,22 +32,20 @@
   .tag{font-size:12px;color:var(--muted)}
   table{width:100%;border-collapse:collapse} th,td{padding:10px;border-bottom:1px solid var(--stroke);font-size:13px} th{text-align:left}
   .pill{display:inline-flex;align-items:center;padding:6px 14px;border-radius:999px;background:#0e1021;border:1px solid var(--stroke);gap:8px;font-weight:800}
-  button{width:100%;padding:14px 16px;border-radius:12px;border:0;cursor:pointer;font-weight:900;background:linear-gradient(135deg,rgba(159,91,255,.95),rgba(0,179,255,.9));color:#fff}
-  button[disabled]{opacity:.6;cursor:not-allowed}
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
   @media (max-width:700px){.kpis{grid-template-columns:repeat(2,1fr)}}
   .kpi{background:#0e1021;border:1px solid var(--stroke);border-radius:14px;padding:14px}
   .kpi .v{font-size:22px;font-weight:900}.kpi .l{font-size:12px;color:var(--muted)}
-  .bigBadge{font-size:28px}
-  .gaGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-  @media (max-width:700px){.gaGrid{grid-template-columns:repeat(2,1fr)}}
-  /* segmented control */
+  .bigBadge{font-size:26px}
   .seg{display:inline-flex;background:#0e1021;border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
   .seg button{padding:8px 14px;border:0;background:transparent;color:var(--muted);font-weight:700;cursor:pointer;transition:all .2s ease}
   .seg button:not(:last-child){border-right:1px solid var(--stroke)}
   .seg button.active{color:#fff;background:linear-gradient(135deg,rgba(159,91,255,.25),rgba(0,179,255,.18))}
   .saveNote{margin-left:10px;font-size:12px;color:var(--muted)}
   .toast{font-size:12px;color:#a7f3d0;margin-left:8px}
+  /* Entrada Recomendada */
+  .entryBadge{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%}
+  .entryTag{font-size:12px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -91,14 +89,15 @@
 
     <section class="card col">
       <h2>Entrada Recomendada</h2>
-      <div id="entryBox" style="display:flex;flex-direction:column;gap:12px">
-        <div class="pill bigBadge" id="entryBadge">—</div>
-        <div class="tag" id="entrySource">Fonte: —</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="pill bigBadge entryBadge" id="entryBadge">
+          <span>—</span>
+          <span class="entryTag" id="entrySource">Fonte: —</span>
+        </div>
         <div>
           <div class="progress"><i id="entryBar"></i></div>
           <span class="tag" id="entryConf">confiança: 0%</span>
         </div>
-        <button id="confirmBtn" disabled title="Ao confirmar, o sistema passa a contar gale/resultado para este sinal">Confirmar entrada (Enter)</button>
         <div class="row" style="margin-top:6px">
           <div class="col"><div class="kpi"><div class="v" id="sigGale">—</div><div class="l">Gale (atual / máx)</div></div></div>
           <div class="col"><div class="kpi"><div class="v" id="sigStatus">—</div><div class="l">Status</div></div></div>
@@ -131,7 +130,7 @@
 <script>
   const API_KEY = 'SPECTRA_API';
   const getApiBase = () => (localStorage.getItem(API_KEY) || window.location.origin).replace(/\/+$/,'');
-  async function askApi(){ const v=prompt('URL da API (ex.: https://sniperblaze-cloud.onrender.com)', getApiBase()); if(v){ localStorage.setItem(API_KEY, v.replace(/\/+$/,'')); location.reload(); } }
+  async function askApi(){ const v=prompt('URL da API', getApiBase()); if(v){ localStorage.setItem(API_KEY, v.replace(/\/+$/,'')); location.reload(); } }
   window.addEventListener('keydown', e=>{ if(e.key.toLowerCase()==='a') askApi(); });
   let API = getApiBase();
   document.getElementById('apiChip').title = 'Pressione A para trocar a URL da API';
@@ -140,37 +139,26 @@
   const money=v=>"R$ "+(v||0).toFixed(2).replace(".",",");
   async function j(path,opts){ const r=await fetch(API+path,opts); return await r.json(); }
 
-  // --- segmented control (2 modos) ---
+  // modos
   function renderMode(active){
     document.querySelectorAll("#modeSeg button").forEach(btn=>{
       btn.classList.toggle("active", btn.dataset.mode===active);
     });
   }
   async function saveMode(mode){
-    const toast = $("saveToast");
-    toast.textContent = "Salvando...";
+    const toast = $("saveToast"); toast.textContent = "Salvando...";
     try{
-      await j(`/api/config`, {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({entry_mode: mode})
-      });
-      toast.innerHTML = '<span class="toast">Salvo ✓</span>';
-      setTimeout(()=> toast.textContent="", 2000);
+      await j(`/api/config`, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({entry_mode: mode})});
+      toast.innerHTML = '<span class="toast">Salvo ✓</span>'; setTimeout(()=> toast.textContent="", 1800);
       renderMode(mode);
-    }catch(e){
-      toast.textContent = "Erro ao salvar";
-    }
+    }catch(e){ toast.textContent = "Erro ao salvar"; }
   }
   $("modeSeg").addEventListener("click", (ev)=>{
-    const btn = ev.target.closest("button[data-mode]");
-    if(!btn) return;
-    saveMode(btn.dataset.mode);
+    const b = ev.target.closest("button[data-mode]"); if(!b) return; saveMode(b.dataset.mode);
   });
 
   function renderBalls(arr){
     const g=$("lastGrid"); g.innerHTML="";
-    // arr: [{n, color}]
     arr.slice(-10).forEach(x=>{
       const c = x?.color, n = x?.n;
       const b=document.createElement("div");
@@ -179,7 +167,6 @@
       g.appendChild(b);
     });
   }
-
   function setProbs(probs){
     const pr = Math.round(((probs?.red)||0)*100);
     const pb = Math.round(((probs?.black)||0)*100);
@@ -188,14 +175,12 @@
     $("pBlack").style.width = pb+"%"; $("pBlackTxt").textContent = pb+"%";
     $("pWhite").style.width = pw+"%"; $("pWhiteTxt").textContent = pw+"%";
   }
-
-  function setEntry(color,conf,gale,maxg,status,confirmed,source,probs){
-    const badge=$("entryBadge");
+  function setEntry(color,conf,gale,maxg,status,source,probs){
+    const badge=$("entryBadge").children[0];
     if(!color){
       badge.textContent="—";
       $("entryBar").style.width="0%";
       $("entryConf").textContent="confiança: 0%";
-      $("confirmBtn").disabled=true;
       $("sigGale").textContent="—";
       $("sigStatus").textContent="—";
       $("entrySource").textContent = "Fonte: —";
@@ -206,31 +191,24 @@
     $("entryBar").style.width=Math.round(conf*100)+"%";
     $("entryConf").textContent="confiança: "+Math.round(conf*100)+"%";
     $("sigGale").textContent=(gale||0)+"/"+(maxg||0);
-    $("sigStatus").textContent=confirmed?"confirmado":(status||"—");
-    $("confirmBtn").disabled=confirmed||status!=="running";
-    $("confirmBtn").textContent = confirmed ? "Confirmado ✓" : "Confirmar entrada (Enter)";
+    $("sigStatus").textContent=status||"—";
     $("entrySource").textContent = "Fonte: " + (source || "—");
     setProbs(source==="spectra_ai" ? probs : null);
   }
-
   function row(op){
     const tr=document.createElement("tr");
     const t=new Date(op.created_at||Date.now()).toLocaleTimeString();
     tr.innerHTML=`<td>${t}</td><td><span class="pill">${(op.color||"").toUpperCase()}</span></td>
       <td>${((op.confidence||0)*100).toFixed(0)}%</td><td>${op.gale_step||0}/${op.max_gales||0}</td>
-      <td>${op.result ? (op.result==="WIN"?"✅ WIN":"❌ LOSS") : (op.confirmed?"✓ Confirmado":"—")}</td>`;
+      <td>${op.result==="WIN"?"✅ WIN":"❌ LOSS"}</td>`;
     return tr;
   }
-  let lastFinishedId=null;
-  function maybeAppendFinished(op){ if(!op||!op.result)return; const id=op.created_at; if(id&&id!==lastFinishedId){$("opsBody").prepend(row(op)); lastFinishedId=id;} }
 
   async function refresh(){
     try{ await j(`/api/health`); $("apiStatus").textContent="Online"; }catch(e){ $("apiStatus").textContent="Offline"; return; }
     try{
       const s=await j(`/api/state`);
-      // aplica modo atual
       renderMode(s.config?.entry_mode || "colors");
-
       $("stakeLabel").textContent=(s.config?.stake||2).toFixed(2);
       $("galesLabel").textContent=s.config?.max_gales||2;
       $("sigTotal").textContent=s.metrics?.total_signals||0;
@@ -240,35 +218,33 @@
       $("wrLabel").textContent=Math.round((s.metrics?.winrate||0)*100)+"%";
       renderBalls(s.history_tail||[]);
 
-      const ga = s.auto_strategy || {};
-      const active = ga.active || null;
+      // Telemetria GA
+      const ga = s.auto_strategy || {}, active = ga.active || null;
       $("gaActive").textContent = active ? (active.id || "—") : "—";
       $("gaType").textContent = active ? (active.type || "—") : "—";
       $("gaScore").textContent = ga.active_score!=null ? String(ga.active_score) : "—";
       $("gaGen").textContent = ga.generation!=null ? String(ga.generation) : "—";
       $("gaPool").textContent = ga.pool_size!=null ? String(ga.pool_size) : "—";
 
+      // Entrada recomendada (zera quando terminar)
       const a=s.active_signal;
       const src = a?.source || (active ? "auto_strategy" : "spectra_ai");
       $("gaSource").textContent = src;
-
       if(a){
-        setEntry(a.color,a.confidence,a.gale_step,a.max_gales,a.status,a.confirmed,src,a.probs);
-        if(a.status==="finished"){ maybeAppendFinished(a); }
+        setEntry(a.color,a.confidence,a.gale_step,a.max_gales,a.status,src,a.probs);
       } else {
-        setEntry(null,0,0,0,"—",false,null,null);
+        setEntry(null,0,0,0,"—",null,null);
+      }
+
+      // Se houve operação finalizada nesta rodada, adiciona na tabela
+      const lf = s.last_finished;
+      if(lf){
+        $("opsBody").prepend(row(lf));
       }
     }catch(e){ $("apiStatus").textContent="Offline"; }
   }
 
-  async function confirmEntry(){
-    try{
-      const r=await j(`/api/confirm`,{method:"POST"}); if(r.ok){ refresh(); }
-    }catch(e){}
-  }
-  $("confirmBtn").onclick=confirmEntry;
-  window.addEventListener("keydown",e=>{ if(e.key==="Enter" && !$("confirmBtn").disabled){ confirmEntry(); } });
-
+  // modos
   refresh(); setInterval(refresh,1200);
 </script>
 </body>
