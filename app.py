@@ -1,4 +1,6 @@
-# app.py — Spectra X (compatível com /ingest do bookmarklet) + Auto-Strategy (GA) + modos de entrada
+# app.py — Spectra X (compatível com /ingest do bookmarklet) + Auto-Strategy (GA)
+# Modo de operação SIMPLIFICADO: "colors" (padrão) e "white"
+
 import os, random, uuid
 from collections import deque
 from datetime import datetime
@@ -6,7 +8,7 @@ from typing import Deque, Dict, Optional, List, Tuple
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
-# IA base do seu projeto
+# IA base do projeto
 from ia_core import SpectraAI, FeatureExtractor
 
 app = Flask(__name__, static_url_path="", static_folder=".", template_folder=".")
@@ -16,21 +18,20 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 HISTORY_MAX, SHOW_LAST = 2000, 60
 WHITE_ODDS, COLOR_ODDS = 14.0, 1.0
 
-# entry_mode: "all" | "colors_only" | "white_only" | "alternate"
+# entry_mode: "colors" (padrão) | "white"
 config = dict(
     stake=2.0, max_gales=2, confidence_min=0.60, invert_mapping=False,
-    entry_mode="all",
+    entry_mode="colors",
 )
 
-# Guardamos histórico como lista de objetos {n, color}
+# Histórico: objetos {n, color}
 history: Deque[Dict] = deque(maxlen=HISTORY_MAX)
 metrics = {"total_signals": 0, "wins": 0, "losses": 0, "bank_result": 0.0}
 active_signal: Optional[Dict] = None
-_last_entry_color: Optional[str] = None  # para o modo alternate
 
 # ---------------- IA (Spectra) ----------------
 _feature = FeatureExtractor(K=7)
-_feat_dim = len(_feature)  # implementação do ia_core já retorna o dim
+_feat_dim = len(_feature)
 _ai = SpectraAI(feat_dim=_feat_dim, alpha=0.72, eps_start=0.15, eps_min=0.02, eps_decay=0.9992)
 
 # ---------------- Utils ----------------
@@ -200,30 +201,23 @@ _ga = StrategyGA()
 # =====================================================================
 
 def _pass_mode_filter(color: str) -> bool:
-    """Respeita entry_mode escolhido pelo usuário."""
-    mode = config.get("entry_mode", "all")
-    global _last_entry_color
-    if mode == "white_only":
+    """Filtra conforme o modo selecionado pelo usuário: 'colors' ou 'white'."""
+    mode = config.get("entry_mode", "colors")
+    if mode == "white":
         return color == "white"
-    if mode == "colors_only":
+    if mode == "colors":
         return color in ("red", "black")
-    if mode == "alternate":
-        # impede repetir a mesma cor que a última entrada confirmada
-        if _last_entry_color and color == _last_entry_color:
-            return False
-        return color in ("red", "black")
-    return True  # "all"
+    return True
 
 def apply_result(new_color: str):
-    """Conta resultado **apenas** se houver sinal confirmado."""
+    """Conta resultado APENAS após confirmação do usuário."""
     global active_signal
     _ai.feedback(colors_only(), new_color)
 
     if not active_signal or active_signal.get("status") != "running":
         return
     if not active_signal.get("confirmed", False):
-        # ainda não confirmou -> não conta resultado
-        return
+        return  # ainda não confirmou -> não conta
 
     hit = (new_color == active_signal["color"]) or (active_signal["color"] == "white" and new_color == "white")
     if hit:
@@ -240,9 +234,8 @@ def apply_result(new_color: str):
 
 def maybe_decide_signal():
     """
-    Regras:
     1) Só decide se não há sinal em execução.
-    2) Tenta GA; se não passar no filtro do modo, ignora.
+    2) Tenta GA; se passar no modo, usa.
     3) Fallback Spectra com threshold e filtro do modo.
     """
     global active_signal
@@ -301,6 +294,10 @@ def root():
 def health():
     return jsonify({"ok": True, "time": now_iso()})
 
+@app.get("/api/config")
+def read_config():
+    return jsonify({"ok": True, "config": config})
+
 @app.get("/api/state")
 def state():
     wr = metrics["wins"] / max(1, metrics["wins"] + metrics["losses"])
@@ -322,37 +319,34 @@ def state():
 
 @app.post("/api/confirm")
 def confirm():
-    global active_signal, _last_entry_color
+    global active_signal
     if not active_signal or active_signal.get("status") != "running":
         return jsonify({"ok": False, "error": "no running signal"}), 400
     active_signal["confirmed"] = True
     active_signal["confirmed_at"] = now_iso()
-    _last_entry_color = active_signal.get("color") if active_signal.get("color") in ("red","black") else _last_entry_color
     return jsonify({"ok": True, "signal": active_signal})
 
 @app.post("/api/reset")
 def reset_all():
-    global history, metrics, active_signal, _ai, _ga, _last_entry_color
+    global history, metrics, active_signal, _ai, _ga
     history.clear()
     metrics.update({"total_signals": 0, "wins": 0, "losses": 0, "bank_result": 0.0})
     active_signal = None
-    _last_entry_color = None
     _ai = SpectraAI(feat_dim=_feat_dim, alpha=0.72, eps_start=0.15, eps_min=0.02, eps_decay=0.9992)
     _ga = StrategyGA()
     return jsonify({"ok": True})
 
-# === Config (mudar entry_mode etc.)
+# Config (mudar entry_mode etc.)
 @app.post("/api/config")
 def update_config():
     payload = request.get_json(force=True, silent=True) or {}
-    # só permitimos chaves conhecidas
     allowed = {"stake", "max_gales", "confidence_min", "invert_mapping", "entry_mode"}
     for k, v in payload.items():
         if k in allowed:
             config[k] = v
     return jsonify({"ok": True, "config": config})
 
-# === endpoint que o bookmarklet chama ===
+# endpoint do bookmarklet
 @app.post("/ingest")
 def ingest():
     """
@@ -370,8 +364,7 @@ def ingest():
             c = number_to_color(n_int)
             if c is not None:
                 history.append({"n": n_int, "color": c})
-                # avalia resultado (apenas se confirmado)
-                apply_result(c)
+                apply_result(c)  # só conta após confirmar
                 added += 1
         except Exception:
             pass
