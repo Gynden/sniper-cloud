@@ -1,4 +1,4 @@
-# app.py — Spectra X (compatível com /ingest do bookmarklet) + Auto-Strategy (GA)
+# app.py — Spectra X (compatível com /ingest do bookmarklet) + Auto-Strategy (GA) + modos de entrada
 import os, random, uuid
 from collections import deque
 from datetime import datetime
@@ -6,25 +6,31 @@ from typing import Deque, Dict, Optional, List, Tuple
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
-# === IA base do seu projeto (mantida) ===
+# IA base do seu projeto
 from ia_core import SpectraAI, FeatureExtractor
 
 app = Flask(__name__, static_url_path="", static_folder=".", template_folder=".")
-# CORS amplo (UI hospeda em outra origem)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # ---------------- Config ----------------
 HISTORY_MAX, SHOW_LAST = 2000, 60
 WHITE_ODDS, COLOR_ODDS = 14.0, 1.0
 
-config = dict(stake=2.0, max_gales=2, confidence_min=0.60, invert_mapping=False)
-history: Deque[str] = deque(maxlen=HISTORY_MAX)
+# entry_mode: "all" | "colors_only" | "white_only" | "alternate"
+config = dict(
+    stake=2.0, max_gales=2, confidence_min=0.60, invert_mapping=False,
+    entry_mode="all",
+)
+
+# Guardamos histórico como lista de objetos {n, color}
+history: Deque[Dict] = deque(maxlen=HISTORY_MAX)
 metrics = {"total_signals": 0, "wins": 0, "losses": 0, "bank_result": 0.0}
 active_signal: Optional[Dict] = None
+_last_entry_color: Optional[str] = None  # para o modo alternate
 
-# ---------------- IA (seu Spectra) ----------------
+# ---------------- IA (Spectra) ----------------
 _feature = FeatureExtractor(K=7)
-_feat_dim = len(_feature.make([]))
+_feat_dim = len(_feature)  # implementação do ia_core já retorna o dim
 _ai = SpectraAI(feat_dim=_feat_dim, alpha=0.72, eps_start=0.15, eps_min=0.02, eps_decay=0.9992)
 
 # ---------------- Utils ----------------
@@ -45,49 +51,50 @@ def number_to_color(n: int) -> Optional[str]:
         if 8 <= n <= 14: return "black"
     return None
 
+def colors_only() -> List[str]:
+    return [it["color"] for it in list(history)]
+
 def recent_counts(n=10):
     last = list(history)[-n:]
-    return {"red": last.count("red"), "black": last.count("black"),
-            "white": last.count("white"), "n": len(last)}
+    reds = sum(1 for x in last if x["color"] == "red")
+    blacks = sum(1 for x in last if x["color"] == "black")
+    whites = sum(1 for x in last if x["color"] == "white")
+    return {"red": reds, "black": blacks, "white": whites, "n": len(last)}
 
 # =====================================================================
 #                AUTO-STRATEGY (GERAR → BACKTESTAR → PROMOVER)
 # =====================================================================
 
-# Tipos "primordiais" de padrões (o GA aprende os PARÂMETROS; não há regra fixa)
 TEMPLATE_TYPES = ["repeat_pattern", "alternation", "cluster_count"]
 
-def _predict_by_strategy(stype: str, params: Dict, seq: List[str]) -> Optional[str]:
-    """Dado um tipo + parâmetros, tenta prever a próxima cor com base na cauda de 'seq'."""
-    if not seq:
+def _predict_by_strategy(stype: str, params: Dict, seq_colors: List[str]) -> Optional[str]:
+    if not seq_colors:
         return None
     if stype == "repeat_pattern":
         repeat_n = int(params.get("repeat_n", 3))
-        if len(seq) < repeat_n: return None
-        last = seq[-repeat_n:]
+        if len(seq_colors) < repeat_n: return None
+        last = seq_colors[-repeat_n:]
         if len(set(last)) == 1:
-            return last[-1]  # repetir
+            return last[-1]
         return None
     if stype == "alternation":
         alt_len = int(params.get("alt_len", 3))
-        if len(seq) < alt_len + 1: return None
-        tail = seq[-(alt_len + 1):]
+        if len(seq_colors) < alt_len + 1: return None
+        tail = seq_colors[-(alt_len + 1):]
         ok = True
         for i in range(1, len(tail)):
             if tail[i] == tail[i-1]:
                 ok = False; break
         if ok:
-            # continua alternando
             last = tail[-1]
             return "red" if last == "black" else ("black" if last == "red" else None)
         return None
     if stype == "cluster_count":
         cluster_th = int(params.get("cluster_th", 3))
-        if len(seq) < cluster_th: return None
-        tail = seq[-cluster_th:]
+        if len(seq_colors) < cluster_th: return None
+        tail = seq_colors[-cluster_th:]
         if len(set(tail)) == 1:
             c = tail[-1]
-            # hipótese simples: reversão
             return "black" if c == "red" else ("red" if c == "black" else None)
         return None
     return None
@@ -102,14 +109,12 @@ def _random_strategy(gen: int = 0) -> Dict:
         params = {"cluster_th": random.randint(2, 6)}
     return {"id": str(uuid.uuid4())[:8], "type": t, "params": params, "meta": {"gen": gen}}
 
-def _backtest_candidate(candidate: Dict, colors: List[str], horizon: int = 300) -> Dict:
-    """Backtest leve em janela curta sobre histórico de cores."""
-    data = colors[-horizon:] if horizon and len(colors) > horizon else colors[:]
+def _backtest_candidate(candidate: Dict, seq_colors: List[str], horizon: int = 300) -> Dict:
+    data = seq_colors[-horizon:] if horizon and len(seq_colors) > horizon else seq_colors[:]
     if len(data) < 20:
         return {"id": candidate["id"], "score": 0.0, "winrate": 0.0, "roi": 0}
 
     wins = losses = 0
-    # varremos do início ao fim, e em cada passo tentamos prever o "próximo"
     for i in range(3, len(data)):
         past = data[:i]
         pred = _predict_by_strategy(candidate["type"], candidate["params"], past)
@@ -123,110 +128,101 @@ def _backtest_candidate(candidate: Dict, colors: List[str], horizon: int = 300) 
 
     total = max(1, wins + losses)
     winrate = wins / total
-    roi = wins - losses  # placeholder: substitua pelo seu modelo com payout/gales
+    roi = wins - losses
     score = round(winrate * 0.7 + max(0, roi / total) * 0.3, 4)
     return {"id": candidate["id"], "score": score, "winrate": round(winrate, 3), "roi": roi}
 
 class StrategyGA:
-    """GA muito simples: gera, avalia, seleciona top e cria filhos com mutação/crossover."""
     def __init__(self):
-        self.pool: List[Dict] = []   # candidatos com fitness na meta
+        self.pool: List[Dict] = []
         self.generation: int = 0
-        self.active: Optional[Dict] = None  # melhor estratégia promovida
+        self.active: Optional[Dict] = None
         self.active_score: float = 0.0
 
-    def evaluate_and_update(self, colors: List[str]):
-        """Gera/evolui e reavalia pool quando houver histórico suficiente."""
-        if len(colors) < 60:
+    def evaluate_and_update(self, seq_colors: List[str]):
+        if len(seq_colors) < 60:
             return
 
-        # 1) se o pool está pequeno, gera aleatórios
         target_pool = 30
         while len(self.pool) < target_pool:
             self.pool.append(_random_strategy(self.generation))
 
-        # 2) backtest de todos (rápido)
         scored: List[Tuple[float, Dict]] = []
         for cand in self.pool:
-            res = _backtest_candidate(cand, colors, horizon=300)
+            res = _backtest_candidate(cand, seq_colors, horizon=300)
             cand["meta"]["fitness"] = res["score"]
             cand["meta"]["winrate"] = res["winrate"]
             cand["meta"]["roi"] = res["roi"]
             scored.append((res["score"], cand))
 
-        # 3) selecionar top-N
         scored.sort(key=lambda x: x[0], reverse=True)
         self.pool = [c for _, c in scored[:60]]
 
-        # 4) elitismo e procriação
         parents = self.pool[:10]
         children = []
         for _ in range(10):
             a = random.choice(parents)
             b = random.choice(parents)
-            child = self._crossover(a, b)
-            child = self._mutate(child)
-            child["meta"]["gen"] = self.generation + 1
+            t = random.choice([a["type"], b["type"]])
+            if t == "repeat_pattern":
+                p = {"repeat_n": random.choice([a["params"].get("repeat_n",3), b["params"].get("repeat_n",3)])}
+            elif t == "alternation":
+                p = {"alt_len": random.choice([a["params"].get("alt_len",3), b["params"].get("alt_len",3)])}
+            else:
+                p = {"cluster_th": random.choice([a["params"].get("cluster_th",3), b["params"].get("cluster_th",3)])}
+            child = {"id": (a["id"]+b["id"])[:8], "type": t, "params": p, "meta": {"gen": self.generation+1}}
+            # mutação leve
+            if t == "repeat_pattern" and random.random() < 0.35:
+                child["params"]["repeat_n"] = max(2, int(child["params"]["repeat_n"] + random.choice([-1,0,1])))
+            if t == "alternation" and random.random() < 0.35:
+                child["params"]["alt_len"] = max(2, int(child["params"]["alt_len"] + random.choice([-1,0,1])))
+            if t == "cluster_count" and random.random() < 0.35:
+                child["params"]["cluster_th"] = max(2, int(child["params"]["cluster_th"] + random.choice([-1,0,1])))
             children.append(child)
         self.pool.extend(children)
         self.generation += 1
 
-        # 5) promover melhor se bater threshold
         best = self.pool[0]
         best_score = best["meta"].get("fitness", 0.0)
         if best_score >= 0.60 and best_score >= self.active_score:
             self.active = {k: v for k, v in best.items() if k != "meta"}
             self.active_score = best_score
 
-    def _crossover(self, a: Dict, b: Dict) -> Dict:
-        t = random.choice([a["type"], b["type"]])  # às vezes troca o tipo
-        params = {}
-        if t == "repeat_pattern":
-            ra = a.get("params", {}).get("repeat_n", 3)
-            rb = b.get("params", {}).get("repeat_n", 3)
-            params["repeat_n"] = random.choice([ra, rb])
-        elif t == "alternation":
-            ra = a.get("params", {}).get("alt_len", 3)
-            rb = b.get("params", {}).get("alt_len", 3)
-            params["alt_len"] = random.choice([ra, rb])
-        else:
-            ra = a.get("params", {}).get("cluster_th", 3)
-            rb = b.get("params", {}).get("cluster_th", 3)
-            params["cluster_th"] = random.choice([ra, rb])
-        return {"id": (a["id"] + b["id"])[:8], "type": t, "params": params, "meta": {"gen": self.generation + 1}}
-
-    def _mutate(self, s: Dict) -> Dict:
-        p = s["params"]
-        if s["type"] == "repeat_pattern":
-            if random.random() < 0.35:
-                p["repeat_n"] = max(2, int(p.get("repeat_n", 3) + random.choice([-1, 0, 1])))
-        elif s["type"] == "alternation":
-            if random.random() < 0.35:
-                p["alt_len"] = max(2, int(p.get("alt_len", 3) + random.choice([-1, 0, 1])))
-        else:
-            if random.random() < 0.35:
-                p["cluster_th"] = max(2, int(p.get("cluster_th", 3) + random.choice([-1, 0, 1])))
-        return s
-
-    def predict(self, colors: List[str]) -> Optional[str]:
-        """Tenta prever a próxima cor usando a estratégia ativa."""
+    def predict(self, seq_colors: List[str]) -> Optional[str]:
         if not self.active:
             return None
-        return _predict_by_strategy(self.active["type"], self.active["params"], colors)
+        return _predict_by_strategy(self.active["type"], self.active["params"], seq_colors)
 
-# Instância global do GA
 _ga = StrategyGA()
 
 # =====================================================================
 #                           LÓGICA DE SINAIS
 # =====================================================================
 
+def _pass_mode_filter(color: str) -> bool:
+    """Respeita entry_mode escolhido pelo usuário."""
+    mode = config.get("entry_mode", "all")
+    global _last_entry_color
+    if mode == "white_only":
+        return color == "white"
+    if mode == "colors_only":
+        return color in ("red", "black")
+    if mode == "alternate":
+        # impede repetir a mesma cor que a última entrada confirmada
+        if _last_entry_color and color == _last_entry_color:
+            return False
+        return color in ("red", "black")
+    return True  # "all"
+
 def apply_result(new_color: str):
+    """Conta resultado **apenas** se houver sinal confirmado."""
     global active_signal
-    # feedback para seu modelo Spectra
-    _ai.feedback(list(history), new_color)
+    _ai.feedback(colors_only(), new_color)
 
     if not active_signal or active_signal.get("status") != "running":
+        return
+    if not active_signal.get("confirmed", False):
+        # ainda não confirmou -> não conta resultado
         return
 
     hit = (new_color == active_signal["color"]) or (active_signal["color"] == "white" and new_color == "white")
@@ -244,21 +240,21 @@ def apply_result(new_color: str):
 
 def maybe_decide_signal():
     """
-    Política de decisão:
-    1) Tenta estratégia ativa descoberta pelo GA (se score alto e previsão disponível).
-    2) Se não houver previsão, usa seu SpectraAI como fallback (com threshold de confiança).
+    Regras:
+    1) Só decide se não há sinal em execução.
+    2) Tenta GA; se não passar no filtro do modo, ignora.
+    3) Fallback Spectra com threshold e filtro do modo.
     """
     global active_signal
     if active_signal and active_signal.get("status") == "running":
         return
 
-    colors = list(history)
+    seq_colors = colors_only()
 
-    # === 1) evolve/avaliar GA e tentar previsão
-    _ga.evaluate_and_update(colors)
-    ga_pred = _ga.predict(colors)
-    if ga_pred is not None and _ga.active_score >= 0.60:
-        # confiança derivada do score da estratégia ativa (0.60..1.0 -> 0.60..0.95 aprox)
+    # GA
+    _ga.evaluate_and_update(seq_colors)
+    ga_pred = _ga.predict(seq_colors)
+    if ga_pred is not None and _ga.active_score >= 0.60 and _pass_mode_filter(ga_pred):
         conf = min(0.95, max(0.60, float(_ga.active_score)))
         active_signal = {
             "created_at": now_iso(),
@@ -271,31 +267,30 @@ def maybe_decide_signal():
             "status": "running",
             "result": None,
             "confirmed": False,
-            "strategy": _ga.active,  # para debug/telemetria
+            "strategy": _ga.active,
             "source": "auto_strategy"
         }
         metrics["total_signals"] += 1
         return
 
-    # === 2) fallback no SpectraAI
-    feats = _feature.make(colors)
-    color, conf, mix = _ai.decide(feats, colors)
-    if conf < config["confidence_min"]:
-        return
-    active_signal = {
-        "created_at": now_iso(),
-        "color": color,
-        "confidence": round(conf, 3),
-        "probs": mix,
-        "gale_step": 0,
-        "max_gales": config["max_gales"],
-        "stake": config["stake"],
-        "status": "running",
-        "result": None,
-        "confirmed": False,
-        "source": "spectra_ai"
-    }
-    metrics["total_signals"] += 1
+    # Spectra fallback
+    feats = _feature.make(seq_colors)
+    color, conf, mix = _ai.decide(feats, seq_colors)
+    if conf >= config["confidence_min"] and _pass_mode_filter(color):
+        active_signal = {
+            "created_at": now_iso(),
+            "color": color,
+            "confidence": round(conf, 3),
+            "probs": mix,
+            "gale_step": 0,
+            "max_gales": config["max_gales"],
+            "stake": config["stake"],
+            "status": "running",
+            "result": None,
+            "confirmed": False,
+            "source": "spectra_ai"
+        }
+        metrics["total_signals"] += 1
 
 # ---------------- Rotas ----------------
 @app.get("/")
@@ -311,7 +306,7 @@ def state():
     wr = metrics["wins"] / max(1, metrics["wins"] + metrics["losses"])
     return jsonify({
         "ok": True,
-        "history_tail": list(history)[-SHOW_LAST:],
+        "history_tail": list(history)[-SHOW_LAST:],   # [{n, color}, ...]
         "counts10": recent_counts(10),
         "active_signal": active_signal,
         "metrics": {**metrics, "winrate": round(wr, 3)},
@@ -327,22 +322,35 @@ def state():
 
 @app.post("/api/confirm")
 def confirm():
-    global active_signal
+    global active_signal, _last_entry_color
     if not active_signal or active_signal.get("status") != "running":
         return jsonify({"ok": False, "error": "no running signal"}), 400
     active_signal["confirmed"] = True
     active_signal["confirmed_at"] = now_iso()
+    _last_entry_color = active_signal.get("color") if active_signal.get("color") in ("red","black") else _last_entry_color
     return jsonify({"ok": True, "signal": active_signal})
 
 @app.post("/api/reset")
 def reset_all():
-    global history, metrics, active_signal, _ai, _ga
+    global history, metrics, active_signal, _ai, _ga, _last_entry_color
     history.clear()
     metrics.update({"total_signals": 0, "wins": 0, "losses": 0, "bank_result": 0.0})
     active_signal = None
+    _last_entry_color = None
     _ai = SpectraAI(feat_dim=_feat_dim, alpha=0.72, eps_start=0.15, eps_min=0.02, eps_decay=0.9992)
     _ga = StrategyGA()
     return jsonify({"ok": True})
+
+# === Config (mudar entry_mode etc.)
+@app.post("/api/config")
+def update_config():
+    payload = request.get_json(force=True, silent=True) or {}
+    # só permitimos chaves conhecidas
+    allowed = {"stake", "max_gales", "confidence_min", "invert_mapping", "entry_mode"}
+    for k, v in payload.items():
+        if k in allowed:
+            config[k] = v
+    return jsonify({"ok": True, "config": config})
 
 # === endpoint que o bookmarklet chama ===
 @app.post("/ingest")
@@ -356,12 +364,13 @@ def ingest():
         return jsonify({"ok": False, "error": "expected {history:[...]}"}), 400
 
     added = 0
-    # processa só a cauda para evitar duplicatas em massa
     for n in seq[-25:]:
         try:
-            c = number_to_color(int(n))
-            if c:
-                history.append(c)
+            n_int = int(n)
+            c = number_to_color(n_int)
+            if c is not None:
+                history.append({"n": n_int, "color": c})
+                # avalia resultado (apenas se confirmado)
                 apply_result(c)
                 added += 1
         except Exception:
@@ -371,13 +380,6 @@ def ingest():
         maybe_decide_signal()
 
     return jsonify({"ok": True, "added": added, "len": len(history)})
-
-# (Opcional) endpoint para inspecionar rapidamente o melhor indivíduo
-@app.get("/api/strategies/active")
-def api_active_strategy():
-    if not _ga.active:
-        return jsonify({"ok": True, "active": None})
-    return jsonify({"ok": True, "active": _ga.active, "score": round(_ga.active_score, 3)})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5001))
