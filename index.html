@@ -41,6 +41,8 @@
   .bigBadge{font-size:28px}
   .gaGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
   @media (max-width:700px){.gaGrid{grid-template-columns:repeat(2,1fr)}}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}
+  .sel{background:#0e1021;border:1px solid var(--stroke);color:var(--text);border-radius:12px;padding:10px 12px}
 </style>
 </head>
 <body>
@@ -59,6 +61,18 @@
     <section class="card col">
       <h2>Últimas Rodadas & Probabilidades</h2>
       <div class="grid" id="lastGrid"></div>
+
+      <div class="controls">
+        <label class="tag" for="modeSel">Modo de Entrada:</label>
+        <select id="modeSel" class="sel" title="all / colors_only / white_only / alternate">
+          <option value="all">All (padrão)</option>
+          <option value="colors_only">Só cores (red/black)</option>
+          <option value="white_only">Só branco</option>
+          <option value="alternate">Alternar RED/BLACK</option>
+        </select>
+        <button id="saveModeBtn" style="width:auto;padding:10px 14px">Salvar modo</button>
+      </div>
+
       <div style="margin-top:12px" class="row">
         <div class="col"><div class="pill">Red prob</div><div class="progress"><i id="pRed"></i></div><span class="tag" id="pRedTxt">0%</span></div>
         <div class="col"><div class="pill">Black prob</div><div class="progress"><i id="pBlack"></i></div><span class="tag" id="pBlackTxt">0%</span></div>
@@ -81,7 +95,7 @@
           <div class="progress"><i id="entryBar"></i></div>
           <span class="tag" id="entryConf">confiança: 0%</span>
         </div>
-        <button id="confirmBtn" disabled>Confirmar entrada (Enter)</button>
+        <button id="confirmBtn" disabled title="Ao confirmar, o sistema passa a contar gale/resultado para este sinal">Confirmar entrada (Enter)</button>
         <div class="row" style="margin-top:6px">
           <div class="col"><div class="kpi"><div class="v" id="sigGale">—</div><div class="l">Gale (atual / máx)</div></div></div>
           <div class="col"><div class="kpi"><div class="v" id="sigStatus">—</div><div class="l">Status</div></div></div>
@@ -89,7 +103,7 @@
       </div>
     </section>
 
-    <!-- Painel Auto-Strategy (GA) -->
+    <!-- Auto-Strategy -->
     <section class="card col">
       <h2>Auto-Strategy (GA)</h2>
       <div class="gaGrid">
@@ -113,7 +127,6 @@
 </div>
 
 <script>
-  // ===== Seleção da API (tecla 'A' para trocar) =====
   const API_KEY = 'SPECTRA_API';
   const getApiBase = () => (localStorage.getItem(API_KEY) || window.location.origin).replace(/\/+$/,'');
   async function askApi(){ const v=prompt('URL da API (ex.: https://sniperblaze-cloud.onrender.com)', getApiBase()); if(v){ localStorage.setItem(API_KEY, v.replace(/\/+$/,'')); location.reload(); } }
@@ -127,14 +140,16 @@
 
   function renderBalls(arr){
     const g=$("lastGrid"); g.innerHTML="";
-    arr.slice(-10).forEach(c=>{
+    // arr: [{n, color}]
+    arr.slice(-10).forEach(x=>{
+      const c = x?.color, n = x?.n;
       const b=document.createElement("div");
       b.className="ball "+(c==="red"?"b-red":c==="black"?"b-black":"b-white");
-      b.textContent=c==="white"?"W":(c==="red"?"R":"B"); g.appendChild(b);
+      b.textContent=(c==="white")?"0":String(n ?? "");
+      g.appendChild(b);
     });
   }
 
-  // Atualiza as barras de probabilidade com base em s.active_signal.probs (Spectra)
   function setProbs(probs){
     const pr = Math.round(((probs?.red)||0)*100);
     const pb = Math.round(((probs?.black)||0)*100);
@@ -165,7 +180,6 @@
     $("confirmBtn").disabled=confirmed||status!=="running";
     $("confirmBtn").textContent = confirmed ? "Confirmado ✓" : "Confirmar entrada (Enter)";
     $("entrySource").textContent = "Fonte: " + (source || "—");
-    // Probs: só preenche quando vier do Spectra (red/black/white). Em GA, mostra 0/0/0.
     setProbs(source==="spectra_ai" ? probs : null);
   }
 
@@ -181,10 +195,12 @@
   function maybeAppendFinished(op){ if(!op||!op.result)return; const id=op.created_at; if(id&&id!==lastFinishedId){$("opsBody").prepend(row(op)); lastFinishedId=id;} }
 
   async function refresh(){
-    // health primeiro (para status)
     try{ await j(`/api/health`); $("apiStatus").textContent="Online"; }catch(e){ $("apiStatus").textContent="Offline"; return; }
     try{
       const s=await j(`/api/state`);
+      // preencher select de modo
+      $("modeSel").value = s.config?.entry_mode || "all";
+
       $("stakeLabel").textContent=(s.config?.stake||2).toFixed(2);
       $("galesLabel").textContent=s.config?.max_gales||2;
       $("sigTotal").textContent=s.metrics?.total_signals||0;
@@ -194,7 +210,6 @@
       $("wrLabel").textContent=Math.round((s.metrics?.winrate||0)*100)+"%";
       renderBalls(s.history_tail||[]);
 
-      // Auto-Strategy dashboard
       const ga = s.auto_strategy || {};
       const active = ga.active || null;
       $("gaActive").textContent = active ? (active.id || "—") : "—";
@@ -204,7 +219,6 @@
       $("gaPool").textContent = ga.pool_size!=null ? String(ga.pool_size) : "—";
 
       const a=s.active_signal;
-      // fonte atual do sinal (GA ou Spectra)
       const src = a?.source || (active ? "auto_strategy" : "spectra_ai");
       $("gaSource").textContent = src;
 
@@ -219,12 +233,20 @@
 
   async function confirmEntry(){
     try{
-      const r=await j(`/api/confirm`,{method:"POST"});
-      if(r.ok){ refresh(); }
+      const r=await j(`/api/confirm`,{method:"POST"}); if(r.ok){ refresh(); }
     }catch(e){}
   }
   $("confirmBtn").onclick=confirmEntry;
   window.addEventListener("keydown",e=>{ if(e.key==="Enter" && !$("confirmBtn").disabled){ confirmEntry(); } });
+
+  // salvar modo
+  $("saveModeBtn").onclick = async ()=>{
+    const mode = $("modeSel").value;
+    try{
+      await j(`/api/config`, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({entry_mode: mode})});
+      refresh();
+    }catch(e){}
+  };
 
   refresh(); setInterval(refresh,1200);
 </script>
