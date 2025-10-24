@@ -36,16 +36,13 @@
   @media (max-width:700px){.kpis{grid-template-columns:repeat(2,1fr)}}
   .kpi{background:#0e1021;border:1px solid var(--stroke);border-radius:14px;padding:14px}
   .kpi .v{font-size:22px;font-weight:900}.kpi .l{font-size:12px;color:var(--muted)}
-  .bigBadge{font-size:26px}
   .seg{display:inline-flex;background:#0e1021;border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
   .seg button{padding:8px 14px;border:0;background:transparent;color:var(--muted);font-weight:700;cursor:pointer;transition:all .2s ease}
   .seg button:not(:last-child){border-right:1px solid var(--stroke)}
   .seg button.active{color:#fff;background:linear-gradient(135deg,rgba(159,91,255,.25),rgba(0,179,255,.18))}
-  .saveNote{margin-left:10px;font-size:12px;color:var(--muted)}
-  .toast{font-size:12px;color:#a7f3d0;margin-left:8px}
-  /* Entrada Recomendada */
-  .entryBadge{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%}
-  .entryTag{font-size:12px;color:var(--muted)}
+  .banner{padding:10px 12px;border:1px solid var(--stroke);border-radius:12px;background:#0e1021;display:flex;justify-content:space-between;align-items:center}
+  .banner.bad{border-color:#3b1e2a;background:#110d16}
+  .banner .label{font-weight:800}
 </style>
 </head>
 <body>
@@ -71,7 +68,7 @@
           <button data-mode="colors">🎯 Cores (Red/Black)</button>
           <button data-mode="white">⚪ Branco</button>
         </div>
-        <span id="saveToast" class="saveNote"></span>
+        <span id="saveToast" class="tag"></span>
       </div>
 
       <div style="margin-top:12px" class="row">
@@ -89,11 +86,14 @@
 
     <section class="card col">
       <h2>Entrada Recomendada</h2>
-      <div style="display:flex;flex-direction:column;gap:12px">
-        <div class="pill bigBadge entryBadge" id="entryBadge">
-          <span>—</span>
-          <span class="entryTag" id="entrySource">Fonte: —</span>
-        </div>
+
+      <div id="mktBanner" class="banner">
+        <span class="label">Mercado:</span>
+        <span id="mktStatus">—</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+        <div class="pill" id="entryBadge">— <span class="tag" style="margin-left:auto">Fonte: <span id="entrySource">—</span></span></div>
         <div>
           <div class="progress"><i id="entryBar"></i></div>
           <span class="tag" id="entryConf">confiança: 0%</span>
@@ -107,7 +107,7 @@
 
     <section class="card col">
       <h2>Auto-Strategy (GA)</h2>
-      <div class="gaGrid">
+      <div class="row" style="gap:12px;flex-wrap:wrap">
         <div class="kpi"><div class="v" id="gaActive">—</div><div class="l">Ativa (id)</div></div>
         <div class="kpi"><div class="v" id="gaType">—</div><div class="l">Tipo</div></div>
         <div class="kpi"><div class="v" id="gaScore">—</div><div class="l">Score</div></div>
@@ -133,7 +133,6 @@
   async function askApi(){ const v=prompt('URL da API', getApiBase()); if(v){ localStorage.setItem(API_KEY, v.replace(/\/+$/,'')); location.reload(); } }
   window.addEventListener('keydown', e=>{ if(e.key.toLowerCase()==='a') askApi(); });
   let API = getApiBase();
-  document.getElementById('apiChip').title = 'Pressione A para trocar a URL da API';
 
   const $=(id)=>document.getElementById(id);
   const money=v=>"R$ "+(v||0).toFixed(2).replace(".",",");
@@ -149,7 +148,7 @@
     const toast = $("saveToast"); toast.textContent = "Salvando...";
     try{
       await j(`/api/config`, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({entry_mode: mode})});
-      toast.innerHTML = '<span class="toast">Salvo ✓</span>'; setTimeout(()=> toast.textContent="", 1800);
+      toast.textContent = "Salvo ✓"; setTimeout(()=> toast.textContent="", 1500);
       renderMode(mode);
     }catch(e){ toast.textContent = "Erro ao salvar"; }
   }
@@ -176,25 +175,26 @@
     $("pWhite").style.width = pw+"%"; $("pWhiteTxt").textContent = pw+"%";
   }
   function setEntry(color,conf,gale,maxg,status,source,probs){
-    const badge=$("entryBadge").children[0];
+    const badge=$("entryBadge");
     if(!color){
       badge.textContent="—";
       $("entryBar").style.width="0%";
       $("entryConf").textContent="confiança: 0%";
       $("sigGale").textContent="—";
       $("sigStatus").textContent="—";
-      $("entrySource").textContent = "Fonte: —";
+      $("entrySource").textContent = "—";
       setProbs(null);
       return;
     }
-    badge.textContent=`ENTRAR: ${color.toUpperCase()}`;
+    badge.textContent=`ENTRAR: ${color.toUpperCase()}  •  Fonte: ${source || "—"}`;
     $("entryBar").style.width=Math.round(conf*100)+"%";
     $("entryConf").textContent="confiança: "+Math.round(conf*100)+"%";
     $("sigGale").textContent=(gale||0)+"/"+(maxg||0);
     $("sigStatus").textContent=status||"—";
-    $("entrySource").textContent = "Fonte: " + (source || "—");
     setProbs(source==="spectra_ai" ? probs : null);
+    $("entrySource").textContent = source || "—";
   }
+
   function row(op){
     const tr=document.createElement("tr");
     const t=new Date(op.created_at||Date.now()).toLocaleTimeString();
@@ -204,11 +204,23 @@
     return tr;
   }
 
+  function renderMarket(m){
+    const el=$("mktBanner");
+    const txt=$("mktStatus");
+    if(!m){ el.classList.remove("bad"); txt.textContent="—"; return; }
+    const stable = m.status==="stable";
+    el.classList.toggle("bad", !stable);
+    txt.textContent = stable
+      ? `Estável • score ${m.score}`
+      : `Instável (pausado) — ${m.reason} • score ${m.score}`;
+  }
+
   async function refresh(){
     try{ await j(`/api/health`); $("apiStatus").textContent="Online"; }catch(e){ $("apiStatus").textContent="Offline"; return; }
     try{
       const s=await j(`/api/state`);
       renderMode(s.config?.entry_mode || "colors");
+
       $("stakeLabel").textContent=(s.config?.stake||2).toFixed(2);
       $("galesLabel").textContent=s.config?.max_gales||2;
       $("sigTotal").textContent=s.metrics?.total_signals||0;
@@ -218,33 +230,30 @@
       $("wrLabel").textContent=Math.round((s.metrics?.winrate||0)*100)+"%";
       renderBalls(s.history_tail||[]);
 
-      // Telemetria GA
-      const ga = s.auto_strategy || {}, active = ga.active || null;
+      renderMarket(s.market);
+
+      const ga = s.auto_strategy || {};
+      const active = ga.active || null;
       $("gaActive").textContent = active ? (active.id || "—") : "—";
       $("gaType").textContent = active ? (active.type || "—") : "—";
       $("gaScore").textContent = ga.active_score!=null ? String(ga.active_score) : "—";
       $("gaGen").textContent = ga.generation!=null ? String(ga.generation) : "—";
       $("gaPool").textContent = ga.pool_size!=null ? String(ga.pool_size) : "—";
+      $("gaSource").textContent = s.active_signal?.source || (active ? "auto_strategy" : "spectra_ai");
 
-      // Entrada recomendada (zera quando terminar)
       const a=s.active_signal;
       const src = a?.source || (active ? "auto_strategy" : "spectra_ai");
-      $("gaSource").textContent = src;
       if(a){
         setEntry(a.color,a.confidence,a.gale_step,a.max_gales,a.status,src,a.probs);
       } else {
         setEntry(null,0,0,0,"—",null,null);
       }
 
-      // Se houve operação finalizada nesta rodada, adiciona na tabela
-      const lf = s.last_finished;
-      if(lf){
-        $("opsBody").prepend(row(lf));
-      }
+      // add operação finalizada
+      if(s.last_finished){ $("opsBody").prepend(row(s.last_finished)); }
     }catch(e){ $("apiStatus").textContent="Offline"; }
   }
 
-  // modos
   refresh(); setInterval(refresh,1200);
 </script>
 </body>
