@@ -1,38 +1,30 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List, Literal, Optional
-from datetime import datetime
 
-# Tipos
+# ---------- Tipos básicos ----------
+
 SpinColor = Literal["red", "black", "white"]
 
 app = FastAPI(title="Spectra X - White Hunter 5/8")
 
 
-class HistoryPayload(BaseModel):
-    history: List[SpinColor]  # do mais antigo pro mais recente
-    bankroll: Optional[float] = None
-    now: Optional[datetime] = None
-
-
 class Stats(BaseModel):
-    whites_today: int = 0
-    losses_today: int = 0
-    attempts_today: int = 0
-    ciclos_sem_acerto: int = 0
-    cooldown_giros_restantes: int = 0
+    whites_today: int = 0          # quantos brancos pegou hoje
+    losses_today: int = 0          # quantas tentativas perdidas
+    attempts_today: int = 0        # quantas entradas no white
+    ciclos_sem_acerto: int = 0     # quantos ciclos ruins seguidos
+    cooldown_giros_restantes: int = 0  # pausas de proteção
 
 
 class Config(BaseModel):
-    stop_win_whites: int = 5                # quantos brancos no dia para travar
-    stop_loss_tentativas: int = 10          # quantas entradas perdidas para travar
-    max_tentativas_por_ciclo: int = 2       # 5º e 8º giro
-    hora_inicio: int = 0                    # horário de operação (0–23)
-    hora_fim: int = 23
-    min_score_para_operar: int = 40         # score mínimo do mercado
-    cooldown_ciclos_ruins: int = 2          # quantos ciclos ruins ativam cooldown
-    cooldown_giros: int = 40                # quantos giros dura o cooldown
-    janela_mercado: int = 30                # quantos giros olhar para calcular score
+    stop_win_whites: int = 5            # stop win em quantidade de whites
+    stop_loss_tentativas: int = 10      # stop loss em tentativas perdidas
+    max_tentativas_por_ciclo: int = 2   # no máximo 2 tentativas por ciclo (5º e 8º)
+    min_score_para_operar: int = 40     # score mínimo para liberar entrada
+    cooldown_ciclos_ruins: int = 2      # quantos ciclos ruins ativam cooldown
+    cooldown_giros: int = 40            # quantos giros dura o cooldown
+    janela_mercado: int = 30            # quantos giros olhar para calcular score
 
 
 class DecisionResponse(BaseModel):
@@ -42,20 +34,31 @@ class DecisionResponse(BaseModel):
     stats: Stats
 
 
-class ResultPayload(BaseModel):
-    entrou: bool
-    foi_white: bool
-    bankroll: Optional[float] = None
+class PushRoundPayload(BaseModel):
+    number: int  # número de 0 a 14 vindo da Blaze
 
 
-# Estado global simples (um perfil único)
+# ---------- Estado em memória ----------
+
 CURRENT_STATS = Stats()
 CONFIG = Config()
+HISTORY: List[SpinColor] = []          # histórico de cores (mais antigo -> mais recente)
+LAST_DECISION_WAS_ENTRY: bool = False  # se o sinal anterior foi "entrar_white"
 
 
 # ---------- Funções de utilidade ----------
 
-def giros_desde_ultimo_white(history: List[SpinColor]) -> Optional[int]:
+def number_to_color(num: int) -> SpinColor:
+    """Converte número (0–14) em cor. Aqui não precisamos do invert pra caçar white."""
+    if num == 0:
+        return "white"
+    # padrão: 1–7 red, 8–14 black (igual seu SubBot quando inv = false)
+    if num <= 7:
+        return "red"
+    return "black"
+
+
+def giros_desde_ultimo_white(history: List[SpinColor]) -> int | None:
     """Conta quantos giros passaram desde o último white."""
     if not history:
         return None
@@ -89,7 +92,7 @@ def calcular_score(history: List[SpinColor], stats: Stats, cfg: Config) -> int:
         else:
             score -= 5
 
-    # 2) Sequências muito longas de uma cor (só red/black)
+    # 2) Sequências longas de uma cor (red/black)
     same_streak = 1
     max_streak = 1
     last = janela[0]
@@ -120,6 +123,7 @@ def calcular_score(history: List[SpinColor], stats: Stats, cfg: Config) -> int:
     if stats.losses_today >= cfg.stop_loss_tentativas // 2:
         score -= 10
 
+    # clamp
     return max(0, min(100, score))
 
 
@@ -134,15 +138,21 @@ def checar_stops(stats: Stats, cfg: Config):
     return None, None
 
 
-def analisar_regra_5e8(history: List[SpinColor], stats: Stats, cfg: Config):
-    """Implementa a regra: entrar no 5º e no 8º giro após o white."""
+def analisar_regra_5e8(history: List[SpinColor]) -> tuple[str, str]:
+    """
+    Implementa a regra:
+    - entrar no 5º giro após o white (primeira tentativa)
+    - entrar no 8º giro após o white (segunda tentativa)
+    """
     if not history:
         return "aguardar", "Sem histórico suficiente."
+
     idx_last_white = None
     for i in range(len(history) - 1, -1, -1):
         if history[i] == "white":
             idx_last_white = i
             break
+
     if idx_last_white is None:
         return "aguardar", "Ainda não saiu white."
 
@@ -157,111 +167,98 @@ def analisar_regra_5e8(history: List[SpinColor], stats: Stats, cfg: Config):
     return "aguardar", f"{proximo_numero}º giro após o white, aguardando 5º ou 8º."
 
 
-# ---------- Endpoints da API ----------
+# ---------- Endpoint principal usado pelo SubBot ----------
 
-@app.post("/decidir", response_model=DecisionResponse)
-def decidir(payload: HistoryPayload):
+@app.post("/api/push_round", response_model=DecisionResponse)
+def push_round(payload: PushRoundPayload):
     """
-    Chamar a cada novo giro com o histórico completo:
-    - history: lista de cores (do mais antigo pro mais recente)
-    - now: datetime opcional (pra respeitar horário de operação)
+    Chamado pelo SubBot a cada novo número que aparecer no histórico da Blaze.
+    1) Atualiza histórico e stats do round ANTERIOR (se tinha sinal).
+    2) Calcula decisão para o PRÓXIMO round (entrar no white ou não).
     """
-    global CURRENT_STATS, CONFIG
-    stats = CURRENT_STATS
+    global CURRENT_STATS, CONFIG, HISTORY, LAST_DECISION_WAS_ENTRY
+
     cfg = CONFIG
-
-    # 1) Stops e cooldown
-    acao_stop, motivo_stop = checar_stops(stats, cfg)
-    if acao_stop is not None:
-        score = calcular_score(payload.history, stats, cfg)
-        return DecisionResponse(
-            action=acao_stop,
-            reason=motivo_stop,
-            score=score,
-            stats=stats
-        )
-
-    # 2) Horário (se informado)
-    if payload.now is not None:
-        hora = payload.now.hour
-        if not (cfg.hora_inicio <= hora < cfg.hora_fim):
-            score = calcular_score(payload.history, stats, cfg)
-            return DecisionResponse(
-                action="aguardar",
-                reason=f"Fora do horário de operação ({cfg.hora_inicio}h–{cfg.hora_fim}h).",
-                score=score,
-                stats=stats
-            )
-
-    # 3) Score de mercado
-    score = calcular_score(payload.history, stats, cfg)
-    if score < cfg.min_score_para_operar:
-        return DecisionResponse(
-            action="aguardar",
-            reason=f"Score de mercado baixo ({score}). Aguardando melhor momento.",
-            score=score,
-            stats=stats
-        )
-
-    # 4) Regra 5/8
-    acao_regra, motivo_regra = analisar_regra_5e8(payload.history, stats, cfg)
-    return DecisionResponse(
-        action=acao_regra,
-        reason=motivo_regra,
-        score=score,
-        stats=stats
-    )
-
-
-@app.post("/resultado", response_model=Stats)
-def atualizar_resultado(result: ResultPayload):
-    """
-    Chamar depois que a rodada fechar:
-    - entrou: True/False se o bot realmente entrou no white
-    - foi_white: True/False se caiu white
-    """
-    global CURRENT_STATS, CONFIG
     stats = CURRENT_STATS
-    cfg = CONFIG
 
-    if result.entrou:
+    # 1) Converte número em cor
+    color = number_to_color(payload.number)
+
+    # 2) Atualiza stats do sinal anterior (se o último round tinha pedido entrada)
+    if LAST_DECISION_WAS_ENTRY:
         stats.attempts_today += 1
-        if result.foi_white:
+        if color == "white":
             stats.whites_today += 1
             stats.ciclos_sem_acerto = 0
         else:
             stats.losses_today += 1
             stats.ciclos_sem_acerto += 1
 
-    # Muitos ciclos ruins → ativa cooldown
-    if stats.ciclos_sem_acerto >= cfg.cooldown_ciclos_ruins:
-        stats.cooldown_giros_restantes = cfg.cooldown_giros
-        stats.ciclos_sem_acerto = 0
+        # Muitos ciclos ruins → cooldown
+        if stats.ciclos_sem_acerto >= cfg.cooldown_ciclos_ruins:
+            stats.cooldown_giros_restantes = cfg.cooldown_giros
+            stats.ciclos_sem_acerto = 0
 
+    # 3) Atualiza histórico com o resultado atual
+    HISTORY.append(color)
+
+    # 4) Tick do cooldown (cada giro reduz 1)
+    if stats.cooldown_giros_restantes > 0:
+        stats.cooldown_giros_restantes -= 1
+
+    # 5) Verifica stops
+    acao_stop, motivo_stop = checar_stops(stats, cfg)
+    score = calcular_score(HISTORY, stats, cfg)
+
+    if acao_stop is not None:
+        LAST_DECISION_WAS_ENTRY = False
+        CURRENT_STATS = stats
+        return DecisionResponse(
+            action=acao_stop,
+            reason=motivo_stop,
+            score=score,
+            stats=stats,
+        )
+
+    # 6) Score de mercado: se muito baixo, não entra
+    if score < cfg.min_score_para_operar:
+        LAST_DECISION_WAS_ENTRY = False
+        CURRENT_STATS = stats
+        return DecisionResponse(
+            action="aguardar",
+            reason=f"Score de mercado baixo ({score}). Aguardando melhor momento.",
+            score=score,
+            stats=stats,
+        )
+
+    # 7) Aplica regra 5/8 para decidir se o PRÓXIMO giro merece entrada
+    acao_regra, motivo_regra = analisar_regra_5e8(HISTORY)
+
+    # Marca se o próximo round será entrada ou não
+    LAST_DECISION_WAS_ENTRY = (acao_regra == "entrar_white")
     CURRENT_STATS = stats
-    return stats
+
+    return DecisionResponse(
+        action=acao_regra,
+        reason=motivo_regra,
+        score=score,
+        stats=stats,
+    )
 
 
-@app.post("/tick")
-def tick():
-    """
-    Opcional: chamar a cada giro só para ir reduzindo o cooldown_giros_restantes.
-    """
-    global CURRENT_STATS
-    if CURRENT_STATS.cooldown_giros_restantes > 0:
-        CURRENT_STATS.cooldown_giros_restantes -= 1
-    return {"cooldown_giros_restantes": CURRENT_STATS.cooldown_giros_restantes}
-
+# ---------- Endpoints auxiliares ----------
 
 @app.get("/stats", response_model=Stats)
 def get_stats():
-    """Ver estado atual do dia."""
+    """Ver estado atual (para painel / debug)."""
     return CURRENT_STATS
 
 
 @app.post("/reset", response_model=Stats)
 def reset_stats():
-    """Zera estatísticas (usar 1x por dia, tipo no início do dia)."""
-    global CURRENT_STATS
+    """Zera estatísticas e histórico (usar 1x por dia, no início)."""
+    global CURRENT_STATS, HISTORY, LAST_DECISION_WAS_ENTRY
     CURRENT_STATS = Stats()
+    HISTORY = []
+    LAST_DECISION_WAS_ENTRY = False
     return CURRENT_STATS
