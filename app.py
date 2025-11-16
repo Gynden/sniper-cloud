@@ -43,7 +43,7 @@ class PushRoundPayload(BaseModel):
 CURRENT_STATS = Stats()
 CONFIG = Config()
 HISTORY: List[SpinColor] = []          # histórico de cores (mais antigo -> mais recente)
-LAST_DECISION_WAS_ENTRY: bool = False  # se o sinal anterior foi "entrar_white"
+LAST_DECISION_WAS_ENTRY: bool = False  # se o último sinal foi "entrar_white"
 
 
 # ---------- Funções de utilidade ----------
