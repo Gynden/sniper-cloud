@@ -6,7 +6,7 @@ from typing import List, Literal, Optional
 
 SpinColor = Literal["red", "black", "white"]
 
-app = FastAPI(title="Spectra X - White Hunter 5/8")
+app = FastAPI(title="Spectra X - White Hunter 5/8 (DEBUG 5/8 PURO)")
 
 
 class Stats(BaseModel):
@@ -14,17 +14,18 @@ class Stats(BaseModel):
     losses_today: int = 0          # quantas tentativas perdidas
     attempts_today: int = 0        # quantas entradas no white
     ciclos_sem_acerto: int = 0     # quantos ciclos ruins seguidos
-    cooldown_giros_restantes: int = 0  # pausas de proteção
+    cooldown_giros_restantes: int = 0  # pausas de proteção (ainda mantemos, mas bem leve)
 
 
 class Config(BaseModel):
-    stop_win_whites: int = 5            # stop win em quantidade de whites
-    stop_loss_tentativas: int = 10      # stop loss em tentativas perdidas
-    max_tentativas_por_ciclo: int = 2   # no máximo 2 tentativas por ciclo (5º e 8º)
-    min_score_para_operar: int = 40     # score mínimo para liberar entrada
-    cooldown_ciclos_ruins: int = 2      # quantos ciclos ruins ativam cooldown
-    cooldown_giros: int = 40            # quantos giros dura o cooldown
-    janela_mercado: int = 30            # quantos giros olhar para calcular score
+    # Deixamos os stops BEM largos pra não travar seu teste
+    stop_win_whites: int = 9999
+    stop_loss_tentativas: int = 9999
+    max_tentativas_por_ciclo: int = 2   # 5º e 8º giro
+    min_score_para_operar: int = 0      # 0 = NÃO BLOQUEIA POR SCORE
+    cooldown_ciclos_ruins: int = 9999   # na prática não entra em cooldown por ciclo
+    cooldown_giros: int = 0             # sem pausa por giros
+    janela_mercado: int = 30            # só pra cálculo de score/informação
 
 
 class DecisionResponse(BaseModel):
@@ -49,16 +50,16 @@ LAST_DECISION_WAS_ENTRY: bool = False  # se o último sinal foi "entrar_white"
 # ---------- Funções de utilidade ----------
 
 def number_to_color(num: int) -> SpinColor:
-    """Converte número (0–14) em cor. Aqui não precisamos do invert pra caçar white."""
+    """Converte número (0–14) em cor."""
     if num == 0:
         return "white"
-    # padrão: 1–7 red, 8–14 black (igual seu SubBot quando inv = false)
+    # padrão: 1–7 red, 8–14 black
     if num <= 7:
         return "red"
     return "black"
 
 
-def giros_desde_ultimo_white(history: List[SpinColor]) -> int | None:
+def giros_desde_ultimo_white(history: List[SpinColor]) -> Optional[int]:
     """Conta quantos giros passaram desde o último white."""
     if not history:
         return None
@@ -71,7 +72,7 @@ def giros_desde_ultimo_white(history: List[SpinColor]) -> int | None:
 
 
 def calcular_score(history: List[SpinColor], stats: Stats, cfg: Config) -> int:
-    """Calcula um score 0–100 do 'estado do mercado'."""
+    """Score só informativo agora (não bloqueia mais entrada)."""
     if not history:
         return 50
 
@@ -81,10 +82,10 @@ def calcular_score(history: List[SpinColor], stats: Stats, cfg: Config) -> int:
     # 1) Distância desde o último white
     dist = giros_desde_ultimo_white(history)
     if dist is None:
-        score -= 10
+        score -= 5
     else:
         if dist < 3:
-            score -= 15
+            score -= 10
         elif 3 <= dist <= 8:
             score += 5
         elif 9 <= dist <= 20:
@@ -92,7 +93,7 @@ def calcular_score(history: List[SpinColor], stats: Stats, cfg: Config) -> int:
         else:
             score -= 5
 
-    # 2) Sequências longas de uma cor (red/black)
+    # 2) Sequências longas (red/black)
     same_streak = 1
     max_streak = 1
     last = janela[0]
@@ -105,30 +106,18 @@ def calcular_score(history: List[SpinColor], stats: Stats, cfg: Config) -> int:
             last = c
 
     if max_streak >= 10:
-        score -= 15
+        score -= 10
     elif max_streak >= 7:
-        score -= 8
+        score -= 5
     elif max_streak <= 3:
         score += 5
-
-    # 3) Desempenho do dia
-    if stats.attempts_today >= 4:
-        taxa = (stats.whites_today / stats.attempts_today) if stats.attempts_today > 0 else 0
-        if taxa >= 0.15:
-            score += 5
-        elif taxa <= 0.05:
-            score -= 10
-
-    # 4) Muitas perdas acumuladas
-    if stats.losses_today >= cfg.stop_loss_tentativas // 2:
-        score -= 10
 
     # clamp
     return max(0, min(100, score))
 
 
 def checar_stops(stats: Stats, cfg: Config):
-    """Verifica stop win, stop loss e cooldown."""
+    """Mantemos só pra não quebrar, mas na prática nunca vai parar."""
     if stats.whites_today >= cfg.stop_win_whites:
         return "parar", f"Stop win de whites atingido ({stats.whites_today})."
     if stats.losses_today >= cfg.stop_loss_tentativas:
@@ -140,9 +129,9 @@ def checar_stops(stats: Stats, cfg: Config):
 
 def analisar_regra_5e8(history: List[SpinColor]) -> tuple[str, str]:
     """
-    Implementa a regra:
-    - entrar no 5º giro após o white (primeira tentativa)
-    - entrar no 8º giro após o white (segunda tentativa)
+    Implementa a regra 5/8:
+    - ENTRAR no 5º giro após o white (primeira tentativa)
+    - ENTRAR no 8º giro após o white (segunda tentativa)
     """
     if not history:
         return "aguardar", "Sem histórico suficiente."
@@ -160,9 +149,9 @@ def analisar_regra_5e8(history: List[SpinColor]) -> tuple[str, str]:
     proximo_numero = giros_desde_white + 1  # próximo giro após o white
 
     if proximo_numero == 5:
-        return "entrar_white", "Regra 5/8: 5º giro após o último white (primeira tentativa)."
+        return "entrar_white", "Regra 5/8: PRÓXIMO giro é o 5º após o último white (primeira tentativa)."
     if proximo_numero == 8:
-        return "entrar_white", "Regra 5/8: 8º giro após o último white (segunda tentativa)."
+        return "entrar_white", "Regra 5/8: PRÓXIMO giro é o 8º após o último white (segunda tentativa)."
 
     return "aguardar", f"{proximo_numero}º giro após o white, aguardando 5º ou 8º."
 
@@ -174,7 +163,7 @@ def push_round(payload: PushRoundPayload):
     """
     Chamado pelo SubBot a cada novo número que aparecer no histórico da Blaze.
     1) Atualiza histórico e stats do round ANTERIOR (se tinha sinal).
-    2) Calcula decisão para o PRÓXIMO round (entrar no white ou não).
+    2) Calcula decisão para o PRÓXIMO round (entrar no white ou não) pela regra 5/8.
     """
     global CURRENT_STATS, CONFIG, HISTORY, LAST_DECISION_WAS_ENTRY
 
@@ -194,19 +183,14 @@ def push_round(payload: PushRoundPayload):
             stats.losses_today += 1
             stats.ciclos_sem_acerto += 1
 
-        # Muitos ciclos ruins → cooldown
-        if stats.ciclos_sem_acerto >= cfg.cooldown_ciclos_ruins:
-            stats.cooldown_giros_restantes = cfg.cooldown_giros
-            stats.ciclos_sem_acerto = 0
-
     # 3) Atualiza histórico com o resultado atual
     HISTORY.append(color)
 
-    # 4) Tick do cooldown (cada giro reduz 1)
+    # 4) Decrementa cooldown, se algum dia usar
     if stats.cooldown_giros_restantes > 0:
         stats.cooldown_giros_restantes -= 1
 
-    # 5) Verifica stops
+    # 5) Stops (na prática, bem largos agora)
     acao_stop, motivo_stop = checar_stops(stats, cfg)
     score = calcular_score(HISTORY, stats, cfg)
 
@@ -220,21 +204,9 @@ def push_round(payload: PushRoundPayload):
             stats=stats,
         )
 
-    # 6) Score de mercado: se muito baixo, não entra
-    if score < cfg.min_score_para_operar:
-        LAST_DECISION_WAS_ENTRY = False
-        CURRENT_STATS = stats
-        return DecisionResponse(
-            action="aguardar",
-            reason=f"Score de mercado baixo ({score}). Aguardando melhor momento.",
-            score=score,
-            stats=stats,
-        )
-
-    # 7) Aplica regra 5/8 para decidir se o PRÓXIMO giro merece entrada
+    # 6) Regra 5/8 -> decide se o PRÓXIMO giro merece entrada
     acao_regra, motivo_regra = analisar_regra_5e8(HISTORY)
 
-    # Marca se o próximo round será entrada ou não
     LAST_DECISION_WAS_ENTRY = (acao_regra == "entrar_white")
     CURRENT_STATS = stats
 
