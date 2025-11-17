@@ -1,5 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Literal, Optional
 
@@ -7,7 +6,7 @@ from typing import Literal, Optional
 
 SpinColor = Literal["red", "black", "white"]
 
-app = FastAPI(title="Spectra X - White 5/8 SIMPLES + Auth Base")
+app = FastAPI(title="Spectra X - White 5/8 SIMPLES")
 
 
 class Stats(BaseModel):
@@ -15,6 +14,7 @@ class Stats(BaseModel):
     losses_today: int = 0
     attempts_today: int = 0
     dist_desde_white: Optional[int] = None  # giros desde o último white (0 = acabou de sair)
+    total_spins: int = 0                     # quantos resultados já recebemos
 
 
 class DecisionResponse(BaseModel):
@@ -27,29 +27,9 @@ class PushRoundPayload(BaseModel):
     number: int  # 0–14 vindo da Blaze
 
 
-class LoginPayload(BaseModel):
-    email: str
-    password: str
-
-
-class LoginResponse(BaseModel):
-    email: str
-    token: str
-
-
-# "Banco" de usuários em memória (exemplo; depois dá pra ligar em banco de dados)
-USERS = {
-    "demo@demo.com": {"password": "123456", "token": "DEMO-TOKEN-123"},
-    "cliente@seuproduto.com": {"password": "minhasenha", "token": "CLIENTE-TOKEN-XYZ"},
-}
-
 CURRENT_STATS = Stats()
 LAST_DECISION_WAS_ENTRY: bool = False  # se o giro ANTERIOR era sinal de entrada
 
-security = HTTPBearer()
-
-
-# ---------- Funções auxiliares ----------
 
 def number_to_color(num: int) -> SpinColor:
     if num == 0:
@@ -58,16 +38,6 @@ def number_to_color(num: int) -> SpinColor:
         return "red"
     return "black"
 
-
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
-    for email, data in USERS.items():
-        if data["token"] == token:
-            return {"email": email, "token": token}
-    raise HTTPException(status_code=401, detail="Token inválido ou expirado")
-
-
-# ---------- Lógica 5/8 SIMPLES ----------
 
 @app.post("/api/push_round", response_model=DecisionResponse)
 def push_round(payload: PushRoundPayload):
@@ -81,6 +51,8 @@ def push_round(payload: PushRoundPayload):
     global CURRENT_STATS, LAST_DECISION_WAS_ENTRY
 
     stats = CURRENT_STATS
+    stats.total_spins += 1
+
     color = number_to_color(payload.number)
 
     # 1) Atualiza resultado da entrada ANTERIOR
@@ -93,29 +65,39 @@ def push_round(payload: PushRoundPayload):
 
     # 2) Atualiza contador de giros desde o último white
     if color == "white":
-        # acabou de sair white -> zera
+        # acabou de sair white -> esse giro é o 0 depois do white
         stats.dist_desde_white = 0
     else:
         if stats.dist_desde_white is not None:
+            # já tínhamos visto um white, então somamos +1
             stats.dist_desde_white += 1
+        # se nunca vimos white (None), continua None
 
     # 3) Decide se o PRÓXIMO giro é 5º ou 8º após white
     action: Literal["aguardar", "entrar_white"] = "aguardar"
-    reason = "Aguardando sair um white."
+    reason = "Ainda não saiu white; aguardando primeiro white."
 
     if stats.dist_desde_white is not None:
-        proximo = stats.dist_desde_white + 1  # o PRÓXIMO giro
-        if proximo == 5:
-            action = "entrar_white"
-            reason = "REGRA 5/8: próximo giro é o 5º após o último white (1ª tentativa)."
-        elif proximo == 8:
-            action = "entrar_white"
-            reason = "REGRA 5/8: próximo giro é o 8º após o último white (2ª tentativa)."
+        # dist_desde_white = quantos giros JÁ passaram depois do white (incluindo o atual).
+        # Se dist = 0 -> acabou de sair white
+        # Se dist = 1 -> 1º giro após o white
+        # ...
+        proximo = stats.dist_desde_white + 1  # o PRÓXIMO giro após este resultado
+
+        if stats.dist_desde_white == 0:
+            reason = "White acabou de sair; próximo será o 1º giro após o white."
         else:
             reason = (
                 f"{stats.dist_desde_white} giros já passaram desde o white; "
-                f"próximo será o {proximo}º, aguardando 5º ou 8º."
+                f"próximo será o {proximo}º giro."
             )
+
+        if stats.dist_desde_white == 4:  # já passaram 4 -> próximo é o 5º
+            action = "entrar_white"
+            reason = "REGRA 5/8: próximo giro é o 5º após o último white (1ª tentativa)."
+        elif stats.dist_desde_white == 7:  # já passaram 7 -> próximo é o 8º
+            action = "entrar_white"
+            reason = "REGRA 5/8: próximo giro é o 8º após o último white (2ª tentativa)."
 
     LAST_DECISION_WAS_ENTRY = (action == "entrar_white")
     CURRENT_STATS = stats
@@ -127,25 +109,15 @@ def push_round(payload: PushRoundPayload):
     )
 
 
-# ---------- Login básico (pra futura plataforma) ----------
-
-@app.post("/auth/login", response_model=LoginResponse)
-def login(payload: LoginPayload):
-    user = USERS.get(payload.email)
-    if not user or user["password"] != payload.password:
-        raise HTTPException(status_code=401, detail="Credenciais inválidas")
-    return LoginResponse(email=payload.email, token=user["token"])
-
-
-# ---------- Stats protegidos por token (login) ----------
-
 @app.get("/stats", response_model=Stats)
-def get_stats(current_user=Depends(get_current_user)):
+def get_stats():
+    """Ver estado atual (para debug)."""
     return CURRENT_STATS
 
 
 @app.post("/reset", response_model=Stats)
-def reset_stats(current_user=Depends(get_current_user)):
+def reset_stats():
+    """Zera estatísticas e histórico."""
     global CURRENT_STATS, LAST_DECISION_WAS_ENTRY
     CURRENT_STATS = Stats()
     LAST_DECISION_WAS_ENTRY = False
